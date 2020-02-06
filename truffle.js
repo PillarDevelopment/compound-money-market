@@ -1,90 +1,55 @@
-"use strict";
+require('dotenv').config();
+require('babel-register');
+require('babel-polyfill');
+const Web3 = require('web3');
 
-const WalletProvider = require("truffle-wallet-provider");
-const Wallet = require('ethereumjs-wallet');
-const fs = require('fs');
-const path = require('path');
+const HDWalletProvider = require('truffle-hdwallet-provider');
 
-const networks = ["rinkeby", "kovan", "ropsten", "mainnet"];
+const providerWithMnemonic = (mnemonic, rpcEndpoint) =>
+    new HDWalletProvider(mnemonic, rpcEndpoint, 0, 2);
 
-const infuraNetworks = networks.reduce((networks, network) => {
-  const envVarName = `${network.toUpperCase()}_PRIVATE_KEY`
-  let privateKeyHex = process.env[envVarName];
-  const networksHome = process.env['ETHEREUM_NETWORKS_HOME'];
+const infuraProvider = network => providerWithMnemonic(
+    process.env.MNEMONIC_DEPLOY || '',
+    network === 'rinkeby' ?
+        `https://${network}.infura.io/${process.env.INFURA_API_KEY}` :
+        'https://precisely-many-phoenix.quiknode.io/1bf3d5a2-8b71-45c7-817f-745719b8e44c/ySMyhjiLUZ8zerA_BfAQiA==/'
+);
 
-  if (networksHome && !privateKeyHex) {
-    try {
-      // Try to read from file
-      const networkPathResolved = path.join(fs.realpathSync(networksHome), network);
-      privateKeyHex = fs.readFileSync(networkPathResolved, 'UTF8').trim();
-    } catch (e) {
-      // File does not exist or is inaccessible
-    }
-  }
-
-  if (privateKeyHex) {
-    const privateKey = Buffer.from(privateKeyHex, "hex")
-    const wallet = Wallet.fromPrivateKey(privateKey);
-    const provider = new WalletProvider(wallet, `https://${network}.infura.io/`);
-
-    return {
-      ...networks,
-      [network]: {
-        host: "localhost",
-        port: 8545,
-        network_id: "*",
-        gas: 6600000,
-        gasPrice: 15000000000, // 15 gwei
-        provider,
-      }
-    };
-  } else {
-    return networks;
-  }
-}, {});
-
-let mochaOptions = {};
-
-if (process.env.SOLIDITY_COVERAGE) {
-  mochaOptions = {
-    enableTimeouts: false,
-    grep: /@gas/,
-    invert: true
-  };
-}
+const web3 = new Web3('');
+const gasPrice = web3.toWei(process.env.GAS_PRICE_GWEI, "gwei");
 
 module.exports = {
-  networks: {
-    ...infuraNetworks,
-    development: {
-      host: "localhost",
-      port: 8545,
-      network_id: "*",
-      // TODO: Use `test` instead and change back to 4600000
-      gas: 6600000,
-      gasPrice: 20000,
+    networks: {
+        development: {
+            host: 'localhost',
+            port: 8545,
+            gas: 6700000,
+            network_id: '*', // eslint-disable-line camelcase
+        },
+        rinkeby: {
+            provider: infuraProvider('rinkeby'),
+            network_id: 4, // eslint-disable-line camelcase
+            gasPrice: gasPrice,
+            gas: 6700000
+        },
+        live: {
+            provider: infuraProvider('mainnet'),
+            network_id: 1, // eslint-disable-line camelcase
+            gasPrice: gasPrice,
+            gas: 6700000
+        }
     },
-    // See example coverage settings at https://github.com/sc-forks/solidity-coverage
-    coverage: {
-      host: "localhost",
-      network_id: "*",
-      gas: 0xfffffffffff,
-      gasPrice: 0x01,
-      port: 8555
+    mocha: {
+        reporter: 'eth-gas-reporter',
+        reporterOptions : {
+            currency: 'USD',
+            gasPrice: 20
+        }
     },
-    test: {
-      host: "localhost",
-      port: 8545,
-      network_id: "*",
-      gas: 6721975,
-      gasPrice: 1
+    solc: {
+        optimizer: {
+            enabled: true,
+            runs: 200
+        }
     }
-  },
-  solc: {
-    optimizer: {
-      enabled: true
-    }
-  },
-  mocha: mochaOptions,
-  contracts_build_directory: process.env.CONTRACTS_BUILD_DIRECTORY || undefined
 };
