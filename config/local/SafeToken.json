@@ -1,0 +1,4638 @@
+{
+  "contractName": "SafeToken",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "error",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "info",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "detail",
+          "type": "uint256"
+        }
+      ],
+      "name": "Failure",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x6080604052348015600f57600080fd5b50603580601d6000396000f3006080604052600080fd00a165627a7a72305820d4311ca7c163fbdae928b42267413bda07457b2f43d932969d8ec96c381289f80029",
+  "deployedBytecode": "0x6080604052600080fd00a165627a7a72305820d4311ca7c163fbdae928b42267413bda07457b2f43d932969d8ec96c381289f80029",
+  "sourceMap": "222:4545:9:-;;;;8:9:-1;5:2;;;30:1;27;20:12;5:2;222:4545:9;;;;;;;",
+  "deployedSourceMap": "222:4545:9:-;;;;;",
+  "source": "pragma solidity ^0.4.24;\n\nimport \"./EIP20Interface.sol\";\nimport \"./EIP20NonStandardInterface.sol\";\nimport \"./ErrorReporter.sol\";\n\n/**\n  * @title Safe Token\n  * @author Compound\n  * @notice This is a work in progress.\n  */\ncontract SafeToken is ErrorReporter {\n\n    /**\n      * @dev Checks whether or not there is sufficient allowance for this contract to move amount from `from` and\n      *      whether or not `from` has a balance of at least `amount`. Does NOT do a transfer.\n      */\n    function checkTransferIn(address asset, address from, uint amount) internal view returns (Error) {\n\n        EIP20Interface token = EIP20Interface(asset);\n\n        if (token.allowance(from, address(this)) < amount) {\n            return Error.TOKEN_INSUFFICIENT_ALLOWANCE;\n        }\n\n        if (token.balanceOf(from) < amount) {\n            return Error.TOKEN_INSUFFICIENT_BALANCE;\n        }\n\n        return Error.NO_ERROR;\n    }\n\n    /**\n      * @dev Similar to EIP20 transfer, except it handles a False result from `transferFrom` and returns an explanatory\n      *      error code rather than reverting.  If caller has not called `checkTransferIn`, this may revert due to\n      *      insufficient balance or insufficient allowance. If caller has called `checkTransferIn` prior to this call,\n      *      and it returned Error.NO_ERROR, this should not revert in normal conditions.\n      *\n      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.\n      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca\n      */\n    function doTransferIn(address asset, address from, uint amount) internal returns (Error) {\n        EIP20NonStandardInterface token = EIP20NonStandardInterface(asset);\n\n        bool result;\n\n        token.transferFrom(from, address(this), amount);\n\n        assembly {\n            switch returndatasize()\n                case 0 {                      // This is a non-standard ERC-20\n                    result := not(0)          // set result to true\n                }\n                case 32 {                     // This is a complaint ERC-20\n                    returndatacopy(0, 0, 32)\n                    result := mload(0)        // Set `result = returndata` of external call\n                }\n                default {                     // This is an excessively non-compliant ERC-20, revert.\n                    revert(0, 0)\n                }\n        }\n\n        if (!result) {\n            return Error.TOKEN_TRANSFER_FAILED;\n        }\n\n        return Error.NO_ERROR;\n    }\n\n    /**\n      * @dev Checks balance of this contract in asset\n      */\n    function getCash(address asset) internal view returns (uint) {\n        EIP20Interface token = EIP20Interface(asset);\n\n        return token.balanceOf(address(this));\n    }\n\n    /**\n      * @dev Checks balance of `from` in `asset`\n      */\n    function getBalanceOf(address asset, address from) internal view returns (uint) {\n        EIP20Interface token = EIP20Interface(asset);\n\n        return token.balanceOf(from);\n    }\n\n    /**\n      * @dev Similar to EIP20 transfer, except it handles a False result from `transfer` and returns an explanatory\n      *      error code rather than reverting. If caller has not called checked protocol's balance, this may revert due to\n      *      insufficient cash held in this contract. If caller has checked protocol's balance prior to this call, and verified\n      *      it is >= amount, this should not revert in normal conditions.\n      *\n      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.\n      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca\n      */\n    function doTransferOut(address asset, address to, uint amount) internal returns (Error) {\n        EIP20NonStandardInterface token = EIP20NonStandardInterface(asset);\n\n        bool result;\n\n        token.transfer(to, amount);\n\n        assembly {\n            switch returndatasize()\n                case 0 {                      // This is a non-standard ERC-20\n                    result := not(0)          // set result to true\n                }\n                case 32 {                     // This is a complaint ERC-20\n                    returndatacopy(0, 0, 32)\n                    result := mload(0)        // Set `result = returndata` of external call\n                }\n                default {                     // This is an excessively non-compliant ERC-20, revert.\n                    revert(0, 0)\n                }\n        }\n\n        if (!result) {\n            return Error.TOKEN_TRANSFER_OUT_FAILED;\n        }\n\n        return Error.NO_ERROR;\n    }\n}",
+  "sourcePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/SafeToken.sol",
+  "ast": {
+    "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/SafeToken.sol",
+    "exportedSymbols": {
+      "SafeToken": [
+        7614
+      ]
+    },
+    "id": 7615,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 7439,
+        "literals": [
+          "solidity",
+          "^",
+          "0.4",
+          ".24"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "0:24:9"
+      },
+      {
+        "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/EIP20Interface.sol",
+        "file": "./EIP20Interface.sol",
+        "id": 7440,
+        "nodeType": "ImportDirective",
+        "scope": 7615,
+        "sourceUnit": 249,
+        "src": "26:30:9",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/EIP20NonStandardInterface.sol",
+        "file": "./EIP20NonStandardInterface.sol",
+        "id": 7441,
+        "nodeType": "ImportDirective",
+        "scope": 7615,
+        "sourceUnit": 311,
+        "src": "57:41:9",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/ErrorReporter.sol",
+        "file": "./ErrorReporter.sol",
+        "id": 7442,
+        "nodeType": "ImportDirective",
+        "scope": 7615,
+        "sourceUnit": 492,
+        "src": "99:29:9",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 7443,
+              "name": "ErrorReporter",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 491,
+              "src": "244:13:9",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_ErrorReporter_$491",
+                "typeString": "contract ErrorReporter"
+              }
+            },
+            "id": 7444,
+            "nodeType": "InheritanceSpecifier",
+            "src": "244:13:9"
+          }
+        ],
+        "contractDependencies": [
+          491
+        ],
+        "contractKind": "contract",
+        "documentation": "@title Safe Token\n@author Compound\n@notice This is a work in progress.",
+        "fullyImplemented": true,
+        "id": 7614,
+        "linearizedBaseContracts": [
+          7614,
+          491
+        ],
+        "name": "SafeToken",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "body": {
+              "id": 7489,
+              "nodeType": "Block",
+              "src": "588:331:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7456
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7456,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7490,
+                      "src": "599:20:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                        "typeString": "contract EIP20Interface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7455,
+                        "name": "EIP20Interface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 248,
+                        "src": "599:14:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7460,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7458,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7446,
+                        "src": "637:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7457,
+                      "name": "EIP20Interface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 248,
+                      "src": "622:14:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20Interface_$248_$",
+                        "typeString": "type(contract EIP20Interface)"
+                      }
+                    },
+                    "id": 7459,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "622:21:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                      "typeString": "contract EIP20Interface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "599:44:9"
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 7469,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 7463,
+                          "name": "from",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 7448,
+                          "src": "674:4:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 7465,
+                              "name": "this",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 8393,
+                              "src": "688:4:9",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_SafeToken_$7614",
+                                "typeString": "contract SafeToken"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_contract$_SafeToken_$7614",
+                                "typeString": "contract SafeToken"
+                              }
+                            ],
+                            "id": 7464,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "680:7:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_address_$",
+                              "typeString": "type(address)"
+                            },
+                            "typeName": "address"
+                          },
+                          "id": 7466,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "typeConversion",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "680:13:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          },
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 7461,
+                          "name": "token",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 7456,
+                          "src": "658:5:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                            "typeString": "contract EIP20Interface"
+                          }
+                        },
+                        "id": 7462,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "allowance",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 231,
+                        "src": "658:15:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_external_view$_t_address_$_t_address_$returns$_t_uint256_$",
+                          "typeString": "function (address,address) view external returns (uint256)"
+                        }
+                      },
+                      "id": 7467,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "658:36:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "<",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "id": 7468,
+                      "name": "amount",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7450,
+                      "src": "697:6:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "658:45:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 7474,
+                  "nodeType": "IfStatement",
+                  "src": "654:117:9",
+                  "trueBody": {
+                    "id": 7473,
+                    "nodeType": "Block",
+                    "src": "705:66:9",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7470,
+                            "name": "Error",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 347,
+                            "src": "726:5:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                              "typeString": "type(enum ErrorReporter.Error)"
+                            }
+                          },
+                          "id": 7471,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "memberName": "TOKEN_INSUFFICIENT_ALLOWANCE",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "726:34:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_enum$_Error_$347",
+                            "typeString": "enum ErrorReporter.Error"
+                          }
+                        },
+                        "functionReturnParameters": 7454,
+                        "id": 7472,
+                        "nodeType": "Return",
+                        "src": "719:41:9"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 7480,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 7477,
+                          "name": "from",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 7448,
+                          "src": "801:4:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 7475,
+                          "name": "token",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 7456,
+                          "src": "785:5:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                            "typeString": "contract EIP20Interface"
+                          }
+                        },
+                        "id": 7476,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "balanceOf",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 193,
+                        "src": "785:15:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
+                          "typeString": "function (address) view external returns (uint256)"
+                        }
+                      },
+                      "id": 7478,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "785:21:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "<",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "id": 7479,
+                      "name": "amount",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7450,
+                      "src": "809:6:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "785:30:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 7485,
+                  "nodeType": "IfStatement",
+                  "src": "781:100:9",
+                  "trueBody": {
+                    "id": 7484,
+                    "nodeType": "Block",
+                    "src": "817:64:9",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7481,
+                            "name": "Error",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 347,
+                            "src": "838:5:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                              "typeString": "type(enum ErrorReporter.Error)"
+                            }
+                          },
+                          "id": 7482,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "memberName": "TOKEN_INSUFFICIENT_BALANCE",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "838:32:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_enum$_Error_$347",
+                            "typeString": "enum ErrorReporter.Error"
+                          }
+                        },
+                        "functionReturnParameters": 7454,
+                        "id": 7483,
+                        "nodeType": "Return",
+                        "src": "831:39:9"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "expression": {
+                      "argumentTypes": null,
+                      "id": 7486,
+                      "name": "Error",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 347,
+                      "src": "898:5:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                        "typeString": "type(enum ErrorReporter.Error)"
+                      }
+                    },
+                    "id": 7487,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
+                    "memberName": "NO_ERROR",
+                    "nodeType": "MemberAccess",
+                    "referencedDeclaration": null,
+                    "src": "898:14:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "functionReturnParameters": 7454,
+                  "id": 7488,
+                  "nodeType": "Return",
+                  "src": "891:21:9"
+                }
+              ]
+            },
+            "documentation": "@dev Checks whether or not there is sufficient allowance for this contract to move amount from `from` and\n     whether or not `from` has a balance of at least `amount`. Does NOT do a transfer.",
+            "id": 7490,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": true,
+            "modifiers": [],
+            "name": "checkTransferIn",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7451,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7446,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7490,
+                  "src": "516:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7445,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "516:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7448,
+                  "name": "from",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7490,
+                  "src": "531:12:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7447,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "531:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7450,
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7490,
+                  "src": "545:11:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7449,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "545:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "515:42:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7454,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7453,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7490,
+                  "src": "581:5:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_Error_$347",
+                    "typeString": "enum ErrorReporter.Error"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 7452,
+                    "name": "Error",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 347,
+                    "src": "581:5:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "580:7:9"
+            },
+            "scope": 7614,
+            "src": "491:428:9",
+            "stateMutability": "view",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 7531,
+              "nodeType": "Block",
+              "src": "1711:892:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7502
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7502,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7532,
+                      "src": "1721:31:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                        "typeString": "contract EIP20NonStandardInterface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7501,
+                        "name": "EIP20NonStandardInterface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 310,
+                        "src": "1721:25:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                          "typeString": "contract EIP20NonStandardInterface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7506,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7504,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7492,
+                        "src": "1781:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7503,
+                      "name": "EIP20NonStandardInterface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 310,
+                      "src": "1755:25:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20NonStandardInterface_$310_$",
+                        "typeString": "type(contract EIP20NonStandardInterface)"
+                      }
+                    },
+                    "id": 7505,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1755:32:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                      "typeString": "contract EIP20NonStandardInterface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1721:66:9"
+                },
+                {
+                  "assignments": [],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7508,
+                      "name": "result",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7532,
+                      "src": "1798:11:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      },
+                      "typeName": {
+                        "id": 7507,
+                        "name": "bool",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "1798:4:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7509,
+                  "initialValue": null,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1798:11:9"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7513,
+                        "name": "from",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7494,
+                        "src": "1839:4:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 7515,
+                            "name": "this",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 8393,
+                            "src": "1853:4:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_contract$_SafeToken_$7614",
+                              "typeString": "contract SafeToken"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_contract$_SafeToken_$7614",
+                              "typeString": "contract SafeToken"
+                            }
+                          ],
+                          "id": 7514,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "nodeType": "ElementaryTypeNameExpression",
+                          "src": "1845:7:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_address_$",
+                            "typeString": "type(address)"
+                          },
+                          "typeName": "address"
+                        },
+                        "id": 7516,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1845:13:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 7517,
+                        "name": "amount",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7496,
+                        "src": "1860:6:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 7510,
+                        "name": "token",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7502,
+                        "src": "1820:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                          "typeString": "contract EIP20NonStandardInterface"
+                        }
+                      },
+                      "id": 7512,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "transferFrom",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 275,
+                      "src": "1820:18:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_address_$_t_address_$_t_uint256_$returns$__$",
+                        "typeString": "function (address,address,uint256) external"
+                      }
+                    },
+                    "id": 7518,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1820:47:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7519,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1820:47:9"
+                },
+                {
+                  "externalReferences": [
+                    {
+                      "result": {
+                        "declaration": 7508,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "2231:6:9",
+                        "valueSize": 1
+                      }
+                    },
+                    {
+                      "result": {
+                        "declaration": 7508,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "2024:6:9",
+                        "valueSize": 1
+                      }
+                    }
+                  ],
+                  "id": 7520,
+                  "nodeType": "InlineAssembly",
+                  "operations": "{\n    switch returndatasize()\n    case 0 {\n        result := not(0)\n    }\n    case 32 {\n        returndatacopy(0, 0, 32)\n        result := mload(0)\n    }\n    default {\n        revert(0, 0)\n    }\n}",
+                  "src": "1878:617:9"
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "id": 7522,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "UnaryOperation",
+                    "operator": "!",
+                    "prefix": true,
+                    "src": "2497:7:9",
+                    "subExpression": {
+                      "argumentTypes": null,
+                      "id": 7521,
+                      "name": "result",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7508,
+                      "src": "2498:6:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      }
+                    },
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 7527,
+                  "nodeType": "IfStatement",
+                  "src": "2493:72:9",
+                  "trueBody": {
+                    "id": 7526,
+                    "nodeType": "Block",
+                    "src": "2506:59:9",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7523,
+                            "name": "Error",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 347,
+                            "src": "2527:5:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                              "typeString": "type(enum ErrorReporter.Error)"
+                            }
+                          },
+                          "id": 7524,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "memberName": "TOKEN_TRANSFER_FAILED",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "2527:27:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_enum$_Error_$347",
+                            "typeString": "enum ErrorReporter.Error"
+                          }
+                        },
+                        "functionReturnParameters": 7500,
+                        "id": 7525,
+                        "nodeType": "Return",
+                        "src": "2520:34:9"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "expression": {
+                      "argumentTypes": null,
+                      "id": 7528,
+                      "name": "Error",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 347,
+                      "src": "2582:5:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                        "typeString": "type(enum ErrorReporter.Error)"
+                      }
+                    },
+                    "id": 7529,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
+                    "memberName": "NO_ERROR",
+                    "nodeType": "MemberAccess",
+                    "referencedDeclaration": null,
+                    "src": "2582:14:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "functionReturnParameters": 7500,
+                  "id": 7530,
+                  "nodeType": "Return",
+                  "src": "2575:21:9"
+                }
+              ]
+            },
+            "documentation": "@dev Similar to EIP20 transfer, except it handles a False result from `transferFrom` and returns an explanatory\n     error code rather than reverting.  If caller has not called `checkTransferIn`, this may revert due to\n     insufficient balance or insufficient allowance. If caller has called `checkTransferIn` prior to this call,\n     and it returned Error.NO_ERROR, this should not revert in normal conditions.\n      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.\n           See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca",
+            "id": 7532,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": false,
+            "modifiers": [],
+            "name": "doTransferIn",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7497,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7492,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7532,
+                  "src": "1644:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7491,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1644:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7494,
+                  "name": "from",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7532,
+                  "src": "1659:12:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7493,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1659:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7496,
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7532,
+                  "src": "1673:11:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7495,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1673:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1643:42:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7500,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7499,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7532,
+                  "src": "1704:5:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_Error_$347",
+                    "typeString": "enum ErrorReporter.Error"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 7498,
+                    "name": "Error",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 347,
+                    "src": "1704:5:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1703:7:9"
+            },
+            "scope": 7614,
+            "src": "1622:981:9",
+            "stateMutability": "nonpayable",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 7552,
+              "nodeType": "Block",
+              "src": "2741:109:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7540
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7540,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7553,
+                      "src": "2751:20:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                        "typeString": "contract EIP20Interface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7539,
+                        "name": "EIP20Interface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 248,
+                        "src": "2751:14:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7544,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7542,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7534,
+                        "src": "2789:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7541,
+                      "name": "EIP20Interface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 248,
+                      "src": "2774:14:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20Interface_$248_$",
+                        "typeString": "type(contract EIP20Interface)"
+                      }
+                    },
+                    "id": 7543,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2774:21:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                      "typeString": "contract EIP20Interface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "2751:44:9"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 7548,
+                            "name": "this",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 8393,
+                            "src": "2837:4:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_contract$_SafeToken_$7614",
+                              "typeString": "contract SafeToken"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_contract$_SafeToken_$7614",
+                              "typeString": "contract SafeToken"
+                            }
+                          ],
+                          "id": 7547,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "nodeType": "ElementaryTypeNameExpression",
+                          "src": "2829:7:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_address_$",
+                            "typeString": "type(address)"
+                          },
+                          "typeName": "address"
+                        },
+                        "id": 7549,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "2829:13:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 7545,
+                        "name": "token",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7540,
+                        "src": "2813:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "id": 7546,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "balanceOf",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 193,
+                      "src": "2813:15:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
+                        "typeString": "function (address) view external returns (uint256)"
+                      }
+                    },
+                    "id": 7550,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2813:30:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "functionReturnParameters": 7538,
+                  "id": 7551,
+                  "nodeType": "Return",
+                  "src": "2806:37:9"
+                }
+              ]
+            },
+            "documentation": "@dev Checks balance of this contract in asset",
+            "id": 7553,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": true,
+            "modifiers": [],
+            "name": "getCash",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7535,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7534,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7553,
+                  "src": "2697:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7533,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2697:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2696:15:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7538,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7537,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7553,
+                  "src": "2735:4:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7536,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2735:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2734:6:9"
+            },
+            "scope": 7614,
+            "src": "2680:170:9",
+            "stateMutability": "view",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 7573,
+              "nodeType": "Block",
+              "src": "3002:100:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7563
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7563,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7574,
+                      "src": "3012:20:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                        "typeString": "contract EIP20Interface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7562,
+                        "name": "EIP20Interface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 248,
+                        "src": "3012:14:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7567,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7565,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7555,
+                        "src": "3050:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7564,
+                      "name": "EIP20Interface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 248,
+                      "src": "3035:14:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20Interface_$248_$",
+                        "typeString": "type(contract EIP20Interface)"
+                      }
+                    },
+                    "id": 7566,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3035:21:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                      "typeString": "contract EIP20Interface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "3012:44:9"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7570,
+                        "name": "from",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7557,
+                        "src": "3090:4:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 7568,
+                        "name": "token",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7563,
+                        "src": "3074:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "id": 7569,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "balanceOf",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 193,
+                      "src": "3074:15:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
+                        "typeString": "function (address) view external returns (uint256)"
+                      }
+                    },
+                    "id": 7571,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3074:21:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "functionReturnParameters": 7561,
+                  "id": 7572,
+                  "nodeType": "Return",
+                  "src": "3067:28:9"
+                }
+              ]
+            },
+            "documentation": "@dev Checks balance of `from` in `asset`",
+            "id": 7574,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": true,
+            "modifiers": [],
+            "name": "getBalanceOf",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7558,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7555,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7574,
+                  "src": "2944:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7554,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2944:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7557,
+                  "name": "from",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7574,
+                  "src": "2959:12:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7556,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2959:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2943:29:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7561,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7560,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7574,
+                  "src": "2996:4:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7559,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2996:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2995:6:9"
+            },
+            "scope": 7614,
+            "src": "2922:180:9",
+            "stateMutability": "view",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 7612,
+              "nodeType": "Block",
+              "src": "3890:875:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7586
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7586,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7613,
+                      "src": "3900:31:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                        "typeString": "contract EIP20NonStandardInterface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7585,
+                        "name": "EIP20NonStandardInterface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 310,
+                        "src": "3900:25:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                          "typeString": "contract EIP20NonStandardInterface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7590,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7588,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7576,
+                        "src": "3960:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7587,
+                      "name": "EIP20NonStandardInterface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 310,
+                      "src": "3934:25:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20NonStandardInterface_$310_$",
+                        "typeString": "type(contract EIP20NonStandardInterface)"
+                      }
+                    },
+                    "id": 7589,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3934:32:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                      "typeString": "contract EIP20NonStandardInterface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "3900:66:9"
+                },
+                {
+                  "assignments": [],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7592,
+                      "name": "result",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7613,
+                      "src": "3977:11:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      },
+                      "typeName": {
+                        "id": 7591,
+                        "name": "bool",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "3977:4:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7593,
+                  "initialValue": null,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "3977:11:9"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7597,
+                        "name": "to",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7578,
+                        "src": "4014:2:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 7598,
+                        "name": "amount",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7580,
+                        "src": "4018:6:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 7594,
+                        "name": "token",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7586,
+                        "src": "3999:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                          "typeString": "contract EIP20NonStandardInterface"
+                        }
+                      },
+                      "id": 7596,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "transfer",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 266,
+                      "src": "3999:14:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_address_$_t_uint256_$returns$__$",
+                        "typeString": "function (address,uint256) external"
+                      }
+                    },
+                    "id": 7599,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3999:26:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7600,
+                  "nodeType": "ExpressionStatement",
+                  "src": "3999:26:9"
+                },
+                {
+                  "externalReferences": [
+                    {
+                      "result": {
+                        "declaration": 7592,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "4182:6:9",
+                        "valueSize": 1
+                      }
+                    },
+                    {
+                      "result": {
+                        "declaration": 7592,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "4389:6:9",
+                        "valueSize": 1
+                      }
+                    }
+                  ],
+                  "id": 7601,
+                  "nodeType": "InlineAssembly",
+                  "operations": "{\n    switch returndatasize()\n    case 0 {\n        result := not(0)\n    }\n    case 32 {\n        returndatacopy(0, 0, 32)\n        result := mload(0)\n    }\n    default {\n        revert(0, 0)\n    }\n}",
+                  "src": "4036:617:9"
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "id": 7603,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "UnaryOperation",
+                    "operator": "!",
+                    "prefix": true,
+                    "src": "4655:7:9",
+                    "subExpression": {
+                      "argumentTypes": null,
+                      "id": 7602,
+                      "name": "result",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7592,
+                      "src": "4656:6:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      }
+                    },
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 7608,
+                  "nodeType": "IfStatement",
+                  "src": "4651:76:9",
+                  "trueBody": {
+                    "id": 7607,
+                    "nodeType": "Block",
+                    "src": "4664:63:9",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7604,
+                            "name": "Error",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 347,
+                            "src": "4685:5:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                              "typeString": "type(enum ErrorReporter.Error)"
+                            }
+                          },
+                          "id": 7605,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "memberName": "TOKEN_TRANSFER_OUT_FAILED",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "4685:31:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_enum$_Error_$347",
+                            "typeString": "enum ErrorReporter.Error"
+                          }
+                        },
+                        "functionReturnParameters": 7584,
+                        "id": 7606,
+                        "nodeType": "Return",
+                        "src": "4678:38:9"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "expression": {
+                      "argumentTypes": null,
+                      "id": 7609,
+                      "name": "Error",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 347,
+                      "src": "4744:5:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                        "typeString": "type(enum ErrorReporter.Error)"
+                      }
+                    },
+                    "id": 7610,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
+                    "memberName": "NO_ERROR",
+                    "nodeType": "MemberAccess",
+                    "referencedDeclaration": null,
+                    "src": "4744:14:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "functionReturnParameters": 7584,
+                  "id": 7611,
+                  "nodeType": "Return",
+                  "src": "4737:21:9"
+                }
+              ]
+            },
+            "documentation": "@dev Similar to EIP20 transfer, except it handles a False result from `transfer` and returns an explanatory\n     error code rather than reverting. If caller has not called checked protocol's balance, this may revert due to\n     insufficient cash held in this contract. If caller has checked protocol's balance prior to this call, and verified\n     it is >= amount, this should not revert in normal conditions.\n      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.\n           See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca",
+            "id": 7613,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": false,
+            "modifiers": [],
+            "name": "doTransferOut",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7581,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7576,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7613,
+                  "src": "3825:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7575,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3825:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7578,
+                  "name": "to",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7613,
+                  "src": "3840:10:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7577,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3840:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7580,
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7613,
+                  "src": "3852:11:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7579,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3852:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3824:40:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7584,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7583,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7613,
+                  "src": "3883:5:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_Error_$347",
+                    "typeString": "enum ErrorReporter.Error"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 7582,
+                    "name": "Error",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 347,
+                    "src": "3883:5:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3882:7:9"
+            },
+            "scope": 7614,
+            "src": "3802:963:9",
+            "stateMutability": "nonpayable",
+            "superFunction": null,
+            "visibility": "internal"
+          }
+        ],
+        "scope": 7615,
+        "src": "222:4545:9"
+      }
+    ],
+    "src": "0:4767:9"
+  },
+  "legacyAST": {
+    "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/SafeToken.sol",
+    "exportedSymbols": {
+      "SafeToken": [
+        7614
+      ]
+    },
+    "id": 7615,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 7439,
+        "literals": [
+          "solidity",
+          "^",
+          "0.4",
+          ".24"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "0:24:9"
+      },
+      {
+        "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/EIP20Interface.sol",
+        "file": "./EIP20Interface.sol",
+        "id": 7440,
+        "nodeType": "ImportDirective",
+        "scope": 7615,
+        "sourceUnit": 249,
+        "src": "26:30:9",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/EIP20NonStandardInterface.sol",
+        "file": "./EIP20NonStandardInterface.sol",
+        "id": 7441,
+        "nodeType": "ImportDirective",
+        "scope": 7615,
+        "sourceUnit": 311,
+        "src": "57:41:9",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/ErrorReporter.sol",
+        "file": "./ErrorReporter.sol",
+        "id": 7442,
+        "nodeType": "ImportDirective",
+        "scope": 7615,
+        "sourceUnit": 492,
+        "src": "99:29:9",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 7443,
+              "name": "ErrorReporter",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 491,
+              "src": "244:13:9",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_ErrorReporter_$491",
+                "typeString": "contract ErrorReporter"
+              }
+            },
+            "id": 7444,
+            "nodeType": "InheritanceSpecifier",
+            "src": "244:13:9"
+          }
+        ],
+        "contractDependencies": [
+          491
+        ],
+        "contractKind": "contract",
+        "documentation": "@title Safe Token\n@author Compound\n@notice This is a work in progress.",
+        "fullyImplemented": true,
+        "id": 7614,
+        "linearizedBaseContracts": [
+          7614,
+          491
+        ],
+        "name": "SafeToken",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "body": {
+              "id": 7489,
+              "nodeType": "Block",
+              "src": "588:331:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7456
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7456,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7490,
+                      "src": "599:20:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                        "typeString": "contract EIP20Interface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7455,
+                        "name": "EIP20Interface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 248,
+                        "src": "599:14:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7460,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7458,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7446,
+                        "src": "637:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7457,
+                      "name": "EIP20Interface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 248,
+                      "src": "622:14:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20Interface_$248_$",
+                        "typeString": "type(contract EIP20Interface)"
+                      }
+                    },
+                    "id": 7459,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "622:21:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                      "typeString": "contract EIP20Interface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "599:44:9"
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 7469,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 7463,
+                          "name": "from",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 7448,
+                          "src": "674:4:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        },
+                        {
+                          "argumentTypes": null,
+                          "arguments": [
+                            {
+                              "argumentTypes": null,
+                              "id": 7465,
+                              "name": "this",
+                              "nodeType": "Identifier",
+                              "overloadedDeclarations": [],
+                              "referencedDeclaration": 8393,
+                              "src": "688:4:9",
+                              "typeDescriptions": {
+                                "typeIdentifier": "t_contract$_SafeToken_$7614",
+                                "typeString": "contract SafeToken"
+                              }
+                            }
+                          ],
+                          "expression": {
+                            "argumentTypes": [
+                              {
+                                "typeIdentifier": "t_contract$_SafeToken_$7614",
+                                "typeString": "contract SafeToken"
+                              }
+                            ],
+                            "id": 7464,
+                            "isConstant": false,
+                            "isLValue": false,
+                            "isPure": true,
+                            "lValueRequested": false,
+                            "nodeType": "ElementaryTypeNameExpression",
+                            "src": "680:7:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_address_$",
+                              "typeString": "type(address)"
+                            },
+                            "typeName": "address"
+                          },
+                          "id": 7466,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "kind": "typeConversion",
+                          "lValueRequested": false,
+                          "names": [],
+                          "nodeType": "FunctionCall",
+                          "src": "680:13:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          },
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 7461,
+                          "name": "token",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 7456,
+                          "src": "658:5:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                            "typeString": "contract EIP20Interface"
+                          }
+                        },
+                        "id": 7462,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "allowance",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 231,
+                        "src": "658:15:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_external_view$_t_address_$_t_address_$returns$_t_uint256_$",
+                          "typeString": "function (address,address) view external returns (uint256)"
+                        }
+                      },
+                      "id": 7467,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "658:36:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "<",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "id": 7468,
+                      "name": "amount",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7450,
+                      "src": "697:6:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "658:45:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 7474,
+                  "nodeType": "IfStatement",
+                  "src": "654:117:9",
+                  "trueBody": {
+                    "id": 7473,
+                    "nodeType": "Block",
+                    "src": "705:66:9",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7470,
+                            "name": "Error",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 347,
+                            "src": "726:5:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                              "typeString": "type(enum ErrorReporter.Error)"
+                            }
+                          },
+                          "id": 7471,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "memberName": "TOKEN_INSUFFICIENT_ALLOWANCE",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "726:34:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_enum$_Error_$347",
+                            "typeString": "enum ErrorReporter.Error"
+                          }
+                        },
+                        "functionReturnParameters": 7454,
+                        "id": 7472,
+                        "nodeType": "Return",
+                        "src": "719:41:9"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 7480,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "arguments": [
+                        {
+                          "argumentTypes": null,
+                          "id": 7477,
+                          "name": "from",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 7448,
+                          "src": "801:4:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": [
+                          {
+                            "typeIdentifier": "t_address",
+                            "typeString": "address"
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": null,
+                          "id": 7475,
+                          "name": "token",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 7456,
+                          "src": "785:5:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                            "typeString": "contract EIP20Interface"
+                          }
+                        },
+                        "id": 7476,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "memberName": "balanceOf",
+                        "nodeType": "MemberAccess",
+                        "referencedDeclaration": 193,
+                        "src": "785:15:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
+                          "typeString": "function (address) view external returns (uint256)"
+                        }
+                      },
+                      "id": 7478,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "kind": "functionCall",
+                      "lValueRequested": false,
+                      "names": [],
+                      "nodeType": "FunctionCall",
+                      "src": "785:21:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "<",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "id": 7479,
+                      "name": "amount",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7450,
+                      "src": "809:6:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "src": "785:30:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 7485,
+                  "nodeType": "IfStatement",
+                  "src": "781:100:9",
+                  "trueBody": {
+                    "id": 7484,
+                    "nodeType": "Block",
+                    "src": "817:64:9",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7481,
+                            "name": "Error",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 347,
+                            "src": "838:5:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                              "typeString": "type(enum ErrorReporter.Error)"
+                            }
+                          },
+                          "id": 7482,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "memberName": "TOKEN_INSUFFICIENT_BALANCE",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "838:32:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_enum$_Error_$347",
+                            "typeString": "enum ErrorReporter.Error"
+                          }
+                        },
+                        "functionReturnParameters": 7454,
+                        "id": 7483,
+                        "nodeType": "Return",
+                        "src": "831:39:9"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "expression": {
+                      "argumentTypes": null,
+                      "id": 7486,
+                      "name": "Error",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 347,
+                      "src": "898:5:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                        "typeString": "type(enum ErrorReporter.Error)"
+                      }
+                    },
+                    "id": 7487,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
+                    "memberName": "NO_ERROR",
+                    "nodeType": "MemberAccess",
+                    "referencedDeclaration": null,
+                    "src": "898:14:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "functionReturnParameters": 7454,
+                  "id": 7488,
+                  "nodeType": "Return",
+                  "src": "891:21:9"
+                }
+              ]
+            },
+            "documentation": "@dev Checks whether or not there is sufficient allowance for this contract to move amount from `from` and\n     whether or not `from` has a balance of at least `amount`. Does NOT do a transfer.",
+            "id": 7490,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": true,
+            "modifiers": [],
+            "name": "checkTransferIn",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7451,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7446,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7490,
+                  "src": "516:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7445,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "516:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7448,
+                  "name": "from",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7490,
+                  "src": "531:12:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7447,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "531:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7450,
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7490,
+                  "src": "545:11:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7449,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "545:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "515:42:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7454,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7453,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7490,
+                  "src": "581:5:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_Error_$347",
+                    "typeString": "enum ErrorReporter.Error"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 7452,
+                    "name": "Error",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 347,
+                    "src": "581:5:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "580:7:9"
+            },
+            "scope": 7614,
+            "src": "491:428:9",
+            "stateMutability": "view",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 7531,
+              "nodeType": "Block",
+              "src": "1711:892:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7502
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7502,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7532,
+                      "src": "1721:31:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                        "typeString": "contract EIP20NonStandardInterface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7501,
+                        "name": "EIP20NonStandardInterface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 310,
+                        "src": "1721:25:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                          "typeString": "contract EIP20NonStandardInterface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7506,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7504,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7492,
+                        "src": "1781:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7503,
+                      "name": "EIP20NonStandardInterface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 310,
+                      "src": "1755:25:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20NonStandardInterface_$310_$",
+                        "typeString": "type(contract EIP20NonStandardInterface)"
+                      }
+                    },
+                    "id": 7505,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1755:32:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                      "typeString": "contract EIP20NonStandardInterface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1721:66:9"
+                },
+                {
+                  "assignments": [],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7508,
+                      "name": "result",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7532,
+                      "src": "1798:11:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      },
+                      "typeName": {
+                        "id": 7507,
+                        "name": "bool",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "1798:4:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7509,
+                  "initialValue": null,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "1798:11:9"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7513,
+                        "name": "from",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7494,
+                        "src": "1839:4:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 7515,
+                            "name": "this",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 8393,
+                            "src": "1853:4:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_contract$_SafeToken_$7614",
+                              "typeString": "contract SafeToken"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_contract$_SafeToken_$7614",
+                              "typeString": "contract SafeToken"
+                            }
+                          ],
+                          "id": 7514,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "nodeType": "ElementaryTypeNameExpression",
+                          "src": "1845:7:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_address_$",
+                            "typeString": "type(address)"
+                          },
+                          "typeName": "address"
+                        },
+                        "id": 7516,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "1845:13:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 7517,
+                        "name": "amount",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7496,
+                        "src": "1860:6:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 7510,
+                        "name": "token",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7502,
+                        "src": "1820:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                          "typeString": "contract EIP20NonStandardInterface"
+                        }
+                      },
+                      "id": 7512,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "transferFrom",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 275,
+                      "src": "1820:18:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_address_$_t_address_$_t_uint256_$returns$__$",
+                        "typeString": "function (address,address,uint256) external"
+                      }
+                    },
+                    "id": 7518,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "1820:47:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7519,
+                  "nodeType": "ExpressionStatement",
+                  "src": "1820:47:9"
+                },
+                {
+                  "externalReferences": [
+                    {
+                      "result": {
+                        "declaration": 7508,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "2231:6:9",
+                        "valueSize": 1
+                      }
+                    },
+                    {
+                      "result": {
+                        "declaration": 7508,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "2024:6:9",
+                        "valueSize": 1
+                      }
+                    }
+                  ],
+                  "id": 7520,
+                  "nodeType": "InlineAssembly",
+                  "operations": "{\n    switch returndatasize()\n    case 0 {\n        result := not(0)\n    }\n    case 32 {\n        returndatacopy(0, 0, 32)\n        result := mload(0)\n    }\n    default {\n        revert(0, 0)\n    }\n}",
+                  "src": "1878:617:9"
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "id": 7522,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "UnaryOperation",
+                    "operator": "!",
+                    "prefix": true,
+                    "src": "2497:7:9",
+                    "subExpression": {
+                      "argumentTypes": null,
+                      "id": 7521,
+                      "name": "result",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7508,
+                      "src": "2498:6:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      }
+                    },
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 7527,
+                  "nodeType": "IfStatement",
+                  "src": "2493:72:9",
+                  "trueBody": {
+                    "id": 7526,
+                    "nodeType": "Block",
+                    "src": "2506:59:9",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7523,
+                            "name": "Error",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 347,
+                            "src": "2527:5:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                              "typeString": "type(enum ErrorReporter.Error)"
+                            }
+                          },
+                          "id": 7524,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "memberName": "TOKEN_TRANSFER_FAILED",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "2527:27:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_enum$_Error_$347",
+                            "typeString": "enum ErrorReporter.Error"
+                          }
+                        },
+                        "functionReturnParameters": 7500,
+                        "id": 7525,
+                        "nodeType": "Return",
+                        "src": "2520:34:9"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "expression": {
+                      "argumentTypes": null,
+                      "id": 7528,
+                      "name": "Error",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 347,
+                      "src": "2582:5:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                        "typeString": "type(enum ErrorReporter.Error)"
+                      }
+                    },
+                    "id": 7529,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
+                    "memberName": "NO_ERROR",
+                    "nodeType": "MemberAccess",
+                    "referencedDeclaration": null,
+                    "src": "2582:14:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "functionReturnParameters": 7500,
+                  "id": 7530,
+                  "nodeType": "Return",
+                  "src": "2575:21:9"
+                }
+              ]
+            },
+            "documentation": "@dev Similar to EIP20 transfer, except it handles a False result from `transferFrom` and returns an explanatory\n     error code rather than reverting.  If caller has not called `checkTransferIn`, this may revert due to\n     insufficient balance or insufficient allowance. If caller has called `checkTransferIn` prior to this call,\n     and it returned Error.NO_ERROR, this should not revert in normal conditions.\n      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.\n           See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca",
+            "id": 7532,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": false,
+            "modifiers": [],
+            "name": "doTransferIn",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7497,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7492,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7532,
+                  "src": "1644:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7491,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1644:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7494,
+                  "name": "from",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7532,
+                  "src": "1659:12:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7493,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1659:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7496,
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7532,
+                  "src": "1673:11:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7495,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "1673:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1643:42:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7500,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7499,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7532,
+                  "src": "1704:5:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_Error_$347",
+                    "typeString": "enum ErrorReporter.Error"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 7498,
+                    "name": "Error",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 347,
+                    "src": "1704:5:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "1703:7:9"
+            },
+            "scope": 7614,
+            "src": "1622:981:9",
+            "stateMutability": "nonpayable",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 7552,
+              "nodeType": "Block",
+              "src": "2741:109:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7540
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7540,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7553,
+                      "src": "2751:20:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                        "typeString": "contract EIP20Interface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7539,
+                        "name": "EIP20Interface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 248,
+                        "src": "2751:14:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7544,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7542,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7534,
+                        "src": "2789:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7541,
+                      "name": "EIP20Interface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 248,
+                      "src": "2774:14:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20Interface_$248_$",
+                        "typeString": "type(contract EIP20Interface)"
+                      }
+                    },
+                    "id": 7543,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2774:21:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                      "typeString": "contract EIP20Interface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "2751:44:9"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "arguments": [
+                          {
+                            "argumentTypes": null,
+                            "id": 7548,
+                            "name": "this",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 8393,
+                            "src": "2837:4:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_contract$_SafeToken_$7614",
+                              "typeString": "contract SafeToken"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_contract$_SafeToken_$7614",
+                              "typeString": "contract SafeToken"
+                            }
+                          ],
+                          "id": 7547,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "nodeType": "ElementaryTypeNameExpression",
+                          "src": "2829:7:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_type$_t_address_$",
+                            "typeString": "type(address)"
+                          },
+                          "typeName": "address"
+                        },
+                        "id": 7549,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "typeConversion",
+                        "lValueRequested": false,
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "2829:13:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 7545,
+                        "name": "token",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7540,
+                        "src": "2813:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "id": 7546,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "balanceOf",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 193,
+                      "src": "2813:15:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
+                        "typeString": "function (address) view external returns (uint256)"
+                      }
+                    },
+                    "id": 7550,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "2813:30:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "functionReturnParameters": 7538,
+                  "id": 7551,
+                  "nodeType": "Return",
+                  "src": "2806:37:9"
+                }
+              ]
+            },
+            "documentation": "@dev Checks balance of this contract in asset",
+            "id": 7553,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": true,
+            "modifiers": [],
+            "name": "getCash",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7535,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7534,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7553,
+                  "src": "2697:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7533,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2697:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2696:15:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7538,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7537,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7553,
+                  "src": "2735:4:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7536,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2735:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2734:6:9"
+            },
+            "scope": 7614,
+            "src": "2680:170:9",
+            "stateMutability": "view",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 7573,
+              "nodeType": "Block",
+              "src": "3002:100:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7563
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7563,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7574,
+                      "src": "3012:20:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                        "typeString": "contract EIP20Interface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7562,
+                        "name": "EIP20Interface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 248,
+                        "src": "3012:14:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7567,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7565,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7555,
+                        "src": "3050:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7564,
+                      "name": "EIP20Interface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 248,
+                      "src": "3035:14:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20Interface_$248_$",
+                        "typeString": "type(contract EIP20Interface)"
+                      }
+                    },
+                    "id": 7566,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3035:21:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                      "typeString": "contract EIP20Interface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "3012:44:9"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7570,
+                        "name": "from",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7557,
+                        "src": "3090:4:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 7568,
+                        "name": "token",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7563,
+                        "src": "3074:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20Interface_$248",
+                          "typeString": "contract EIP20Interface"
+                        }
+                      },
+                      "id": 7569,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "balanceOf",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 193,
+                      "src": "3074:15:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_view$_t_address_$returns$_t_uint256_$",
+                        "typeString": "function (address) view external returns (uint256)"
+                      }
+                    },
+                    "id": 7571,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3074:21:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "functionReturnParameters": 7561,
+                  "id": 7572,
+                  "nodeType": "Return",
+                  "src": "3067:28:9"
+                }
+              ]
+            },
+            "documentation": "@dev Checks balance of `from` in `asset`",
+            "id": 7574,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": true,
+            "modifiers": [],
+            "name": "getBalanceOf",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7558,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7555,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7574,
+                  "src": "2944:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7554,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2944:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7557,
+                  "name": "from",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7574,
+                  "src": "2959:12:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7556,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2959:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2943:29:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7561,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7560,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7574,
+                  "src": "2996:4:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7559,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "2996:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "2995:6:9"
+            },
+            "scope": 7614,
+            "src": "2922:180:9",
+            "stateMutability": "view",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 7612,
+              "nodeType": "Block",
+              "src": "3890:875:9",
+              "statements": [
+                {
+                  "assignments": [
+                    7586
+                  ],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7586,
+                      "name": "token",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7613,
+                      "src": "3900:31:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                        "typeString": "contract EIP20NonStandardInterface"
+                      },
+                      "typeName": {
+                        "contractScope": null,
+                        "id": 7585,
+                        "name": "EIP20NonStandardInterface",
+                        "nodeType": "UserDefinedTypeName",
+                        "referencedDeclaration": 310,
+                        "src": "3900:25:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                          "typeString": "contract EIP20NonStandardInterface"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7590,
+                  "initialValue": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7588,
+                        "name": "asset",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7576,
+                        "src": "3960:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      ],
+                      "id": 7587,
+                      "name": "EIP20NonStandardInterface",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 310,
+                      "src": "3934:25:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_contract$_EIP20NonStandardInterface_$310_$",
+                        "typeString": "type(contract EIP20NonStandardInterface)"
+                      }
+                    },
+                    "id": 7589,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "typeConversion",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3934:32:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                      "typeString": "contract EIP20NonStandardInterface"
+                    }
+                  },
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "3900:66:9"
+                },
+                {
+                  "assignments": [],
+                  "declarations": [
+                    {
+                      "constant": false,
+                      "id": 7592,
+                      "name": "result",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 7613,
+                      "src": "3977:11:9",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      },
+                      "typeName": {
+                        "id": 7591,
+                        "name": "bool",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "3977:4:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_bool",
+                          "typeString": "bool"
+                        }
+                      },
+                      "value": null,
+                      "visibility": "internal"
+                    }
+                  ],
+                  "id": 7593,
+                  "initialValue": null,
+                  "nodeType": "VariableDeclarationStatement",
+                  "src": "3977:11:9"
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "arguments": [
+                      {
+                        "argumentTypes": null,
+                        "id": 7597,
+                        "name": "to",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7578,
+                        "src": "4014:2:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        }
+                      },
+                      {
+                        "argumentTypes": null,
+                        "id": 7598,
+                        "name": "amount",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7580,
+                        "src": "4018:6:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      }
+                    ],
+                    "expression": {
+                      "argumentTypes": [
+                        {
+                          "typeIdentifier": "t_address",
+                          "typeString": "address"
+                        },
+                        {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      ],
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 7594,
+                        "name": "token",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 7586,
+                        "src": "3999:5:9",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_EIP20NonStandardInterface_$310",
+                          "typeString": "contract EIP20NonStandardInterface"
+                        }
+                      },
+                      "id": 7596,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "transfer",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 266,
+                      "src": "3999:14:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_function_external_nonpayable$_t_address_$_t_uint256_$returns$__$",
+                        "typeString": "function (address,uint256) external"
+                      }
+                    },
+                    "id": 7599,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "kind": "functionCall",
+                    "lValueRequested": false,
+                    "names": [],
+                    "nodeType": "FunctionCall",
+                    "src": "3999:26:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_tuple$__$",
+                      "typeString": "tuple()"
+                    }
+                  },
+                  "id": 7600,
+                  "nodeType": "ExpressionStatement",
+                  "src": "3999:26:9"
+                },
+                {
+                  "externalReferences": [
+                    {
+                      "result": {
+                        "declaration": 7592,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "4182:6:9",
+                        "valueSize": 1
+                      }
+                    },
+                    {
+                      "result": {
+                        "declaration": 7592,
+                        "isOffset": false,
+                        "isSlot": false,
+                        "src": "4389:6:9",
+                        "valueSize": 1
+                      }
+                    }
+                  ],
+                  "id": 7601,
+                  "nodeType": "InlineAssembly",
+                  "operations": "{\n    switch returndatasize()\n    case 0 {\n        result := not(0)\n    }\n    case 32 {\n        returndatacopy(0, 0, 32)\n        result := mload(0)\n    }\n    default {\n        revert(0, 0)\n    }\n}",
+                  "src": "4036:617:9"
+                },
+                {
+                  "condition": {
+                    "argumentTypes": null,
+                    "id": 7603,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "nodeType": "UnaryOperation",
+                    "operator": "!",
+                    "prefix": true,
+                    "src": "4655:7:9",
+                    "subExpression": {
+                      "argumentTypes": null,
+                      "id": 7602,
+                      "name": "result",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 7592,
+                      "src": "4656:6:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_bool",
+                        "typeString": "bool"
+                      }
+                    },
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "falseBody": null,
+                  "id": 7608,
+                  "nodeType": "IfStatement",
+                  "src": "4651:76:9",
+                  "trueBody": {
+                    "id": 7607,
+                    "nodeType": "Block",
+                    "src": "4664:63:9",
+                    "statements": [
+                      {
+                        "expression": {
+                          "argumentTypes": null,
+                          "expression": {
+                            "argumentTypes": null,
+                            "id": 7604,
+                            "name": "Error",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 347,
+                            "src": "4685:5:9",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                              "typeString": "type(enum ErrorReporter.Error)"
+                            }
+                          },
+                          "id": 7605,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "memberName": "TOKEN_TRANSFER_OUT_FAILED",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": null,
+                          "src": "4685:31:9",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_enum$_Error_$347",
+                            "typeString": "enum ErrorReporter.Error"
+                          }
+                        },
+                        "functionReturnParameters": 7584,
+                        "id": 7606,
+                        "nodeType": "Return",
+                        "src": "4678:38:9"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "expression": {
+                      "argumentTypes": null,
+                      "id": 7609,
+                      "name": "Error",
+                      "nodeType": "Identifier",
+                      "overloadedDeclarations": [],
+                      "referencedDeclaration": 347,
+                      "src": "4744:5:9",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_type$_t_enum$_Error_$347_$",
+                        "typeString": "type(enum ErrorReporter.Error)"
+                      }
+                    },
+                    "id": 7610,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
+                    "memberName": "NO_ERROR",
+                    "nodeType": "MemberAccess",
+                    "referencedDeclaration": null,
+                    "src": "4744:14:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "functionReturnParameters": 7584,
+                  "id": 7611,
+                  "nodeType": "Return",
+                  "src": "4737:21:9"
+                }
+              ]
+            },
+            "documentation": "@dev Similar to EIP20 transfer, except it handles a False result from `transfer` and returns an explanatory\n     error code rather than reverting. If caller has not called checked protocol's balance, this may revert due to\n     insufficient cash held in this contract. If caller has checked protocol's balance prior to this call, and verified\n     it is >= amount, this should not revert in normal conditions.\n      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.\n           See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca",
+            "id": 7613,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": false,
+            "modifiers": [],
+            "name": "doTransferOut",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 7581,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7576,
+                  "name": "asset",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7613,
+                  "src": "3825:13:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7575,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3825:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7578,
+                  "name": "to",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7613,
+                  "src": "3840:10:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_address",
+                    "typeString": "address"
+                  },
+                  "typeName": {
+                    "id": 7577,
+                    "name": "address",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3840:7:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_address",
+                      "typeString": "address"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 7580,
+                  "name": "amount",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7613,
+                  "src": "3852:11:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint256",
+                    "typeString": "uint256"
+                  },
+                  "typeName": {
+                    "id": 7579,
+                    "name": "uint",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "3852:4:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3824:40:9"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 7584,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 7583,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 7613,
+                  "src": "3883:5:9",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_enum$_Error_$347",
+                    "typeString": "enum ErrorReporter.Error"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 7582,
+                    "name": "Error",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 347,
+                    "src": "3883:5:9",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_enum$_Error_$347",
+                      "typeString": "enum ErrorReporter.Error"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "3882:7:9"
+            },
+            "scope": 7614,
+            "src": "3802:963:9",
+            "stateMutability": "nonpayable",
+            "superFunction": null,
+            "visibility": "internal"
+          }
+        ],
+        "scope": 7615,
+        "src": "222:4545:9"
+      }
+    ],
+    "src": "0:4767:9"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.4.25+commit.59dbf8f1.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "2.0.2",
+  "updatedAt": "2020-02-08T10:02:24.471Z"
+}
