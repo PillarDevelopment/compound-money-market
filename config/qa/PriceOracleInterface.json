@@ -31,14 +31,14 @@
     "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/PriceOracleInterface.sol",
     "exportedSymbols": {
       "PriceOracleInterface": [
-        6388
+        7494
       ]
     },
-    "id": 6389,
+    "id": 7495,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 6380,
+        "id": 7486,
         "literals": [
           "solidity",
           "^",
@@ -46,7 +46,7 @@
           ".24"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:24:8"
+        "src": "0:24:9"
       },
       {
         "baseContracts": [],
@@ -54,9 +54,9 @@
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": false,
-        "id": 6388,
+        "id": 7494,
         "linearizedBaseContracts": [
-          6388
+          7494
         ],
         "name": "PriceOracleInterface",
         "nodeType": "ContractDefinition",
@@ -64,7 +64,7 @@
           {
             "body": null,
             "documentation": "@notice Gets the price of a given asset\n@dev fetches the price of a given asset\n@param asset Asset to get the price of\n@return the price scaled by 10**18, or zero if the price is not available",
-            "id": 6387,
+            "id": 7493,
             "implemented": false,
             "isConstructor": false,
             "isDeclaredConst": true,
@@ -72,16 +72,16 @@
             "name": "assetPrices",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 6383,
+              "id": 7489,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 6382,
+                  "id": 7488,
                   "name": "asset",
                   "nodeType": "VariableDeclaration",
-                  "scope": 6387,
-                  "src": "326:13:8",
+                  "scope": 7493,
+                  "src": "326:13:9",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -89,10 +89,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 6381,
+                    "id": 7487,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "326:7:8",
+                    "src": "326:7:9",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
@@ -102,20 +102,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "325:15:8"
+              "src": "325:15:9"
             },
             "payable": false,
             "returnParameters": {
-              "id": 6386,
+              "id": 7492,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 6385,
+                  "id": 7491,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 6387,
-                  "src": "362:4:8",
+                  "scope": 7493,
+                  "src": "362:4:9",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -123,10 +123,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 6384,
+                    "id": 7490,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "362:4:8",
+                    "src": "362:4:9",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -136,33 +136,33 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "361:6:8"
+              "src": "361:6:9"
             },
-            "scope": 6388,
-            "src": "305:63:8",
+            "scope": 7494,
+            "src": "305:63:9",
             "stateMutability": "view",
             "superFunction": null,
             "visibility": "public"
           }
         ],
-        "scope": 6389,
-        "src": "26:344:8"
+        "scope": 7495,
+        "src": "26:344:9"
       }
     ],
-    "src": "0:370:8"
+    "src": "0:370:9"
   },
   "legacyAST": {
     "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/PriceOracleInterface.sol",
     "exportedSymbols": {
       "PriceOracleInterface": [
-        6388
+        7494
       ]
     },
-    "id": 6389,
+    "id": 7495,
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 6380,
+        "id": 7486,
         "literals": [
           "solidity",
           "^",
@@ -170,7 +170,7 @@
           ".24"
         ],
         "nodeType": "PragmaDirective",
-        "src": "0:24:8"
+        "src": "0:24:9"
       },
       {
         "baseContracts": [],
@@ -178,9 +178,9 @@
         "contractKind": "contract",
         "documentation": null,
         "fullyImplemented": false,
-        "id": 6388,
+        "id": 7494,
         "linearizedBaseContracts": [
-          6388
+          7494
         ],
         "name": "PriceOracleInterface",
         "nodeType": "ContractDefinition",
@@ -188,7 +188,7 @@
           {
             "body": null,
             "documentation": "@notice Gets the price of a given asset\n@dev fetches the price of a given asset\n@param asset Asset to get the price of\n@return the price scaled by 10**18, or zero if the price is not available",
-            "id": 6387,
+            "id": 7493,
             "implemented": false,
             "isConstructor": false,
             "isDeclaredConst": true,
@@ -196,16 +196,16 @@
             "name": "assetPrices",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 6383,
+              "id": 7489,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 6382,
+                  "id": 7488,
                   "name": "asset",
                   "nodeType": "VariableDeclaration",
-                  "scope": 6387,
-                  "src": "326:13:8",
+                  "scope": 7493,
+                  "src": "326:13:9",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -213,10 +213,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 6381,
+                    "id": 7487,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "326:7:8",
+                    "src": "326:7:9",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
                       "typeString": "address"
@@ -226,20 +226,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "325:15:8"
+              "src": "325:15:9"
             },
             "payable": false,
             "returnParameters": {
-              "id": 6386,
+              "id": 7492,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 6385,
+                  "id": 7491,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 6387,
-                  "src": "362:4:8",
+                  "scope": 7493,
+                  "src": "362:4:9",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -247,10 +247,10 @@
                     "typeString": "uint256"
                   },
                   "typeName": {
-                    "id": 6384,
+                    "id": 7490,
                     "name": "uint",
                     "nodeType": "ElementaryTypeName",
-                    "src": "362:4:8",
+                    "src": "362:4:9",
                     "typeDescriptions": {
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
@@ -260,20 +260,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "361:6:8"
+              "src": "361:6:9"
             },
-            "scope": 6388,
-            "src": "305:63:8",
+            "scope": 7494,
+            "src": "305:63:9",
             "stateMutability": "view",
             "superFunction": null,
             "visibility": "public"
           }
         ],
-        "scope": 6389,
-        "src": "26:344:8"
+        "scope": 7495,
+        "src": "26:344:9"
       }
     ],
-    "src": "0:370:8"
+    "src": "0:370:9"
   },
   "compiler": {
     "name": "solc",
@@ -281,5 +281,5 @@
   },
   "networks": {},
   "schemaVersion": "2.0.2",
-  "updatedAt": "2020-02-06T13:12:14.549Z"
+  "updatedAt": "2020-02-08T11:01:27.531Z"
 }

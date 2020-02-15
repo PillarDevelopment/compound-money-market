@@ -24,20 +24,20 @@
       "type": "event"
     }
   ],
-  "bytecode": "0x6080604052348015600f57600080fd5b50603580601d6000396000f3006080604052600080fd00a165627a7a72305820798e42a9091b58b18e69c02b51d5d173d4c07e0a1576121b4c6688e7dbd334e20029",
-  "deployedBytecode": "0x6080604052600080fd00a165627a7a72305820798e42a9091b58b18e69c02b51d5d173d4c07e0a1576121b4c6688e7dbd334e20029",
-  "sourceMap": "415:5878:4:-;;;;8:9:-1;5:2;;;30:1;27;20:12;5:2;415:5878:4;;;;;;;",
-  "deployedSourceMap": "415:5878:4:-;;;;;",
-  "source": "pragma solidity ^0.4.24;\n\nimport \"./ErrorReporter.sol\";\nimport \"./CarefulMath.sol\";\n\n/**\n  * @title Exponential module for storing fixed-decision decimals\n  * @author Compound\n  * @notice Exp is a struct which stores decimals with a fixed precision of 18 decimal places.\n  *         Thus, if we wanted to store the 5.1, mantissa would store 5.1e18. That is:\n  *         `Exp({mantissa: 5100000000000000000})`.\n  */\ncontract Exponential is ErrorReporter, CarefulMath {\n\n    // TODO: We may wish to put the result of 10**18 here instead of the expression.\n    // Per https://solidity.readthedocs.io/en/latest/contracts.html#constant-state-variables\n    // the optimizer MAY replace the expression 10**18 with its calculated value.\n    uint constant expScale = 10**18;\n\n    // See TODO on expScale\n    uint constant halfExpScale = expScale/2;\n\n    struct Exp {\n        uint mantissa;\n    }\n\n    uint constant mantissaOne = 10**18;\n    uint constant mantissaOneTenth = 10**17;\n\n    /**\n    * @dev Creates an exponential from numerator and denominator values.\n    *      Note: Returns an error if (`num` * 10e18) > MAX_INT,\n    *            or if `denom` is zero.\n    */\n    function getExp(uint num, uint denom) pure internal returns (Error, Exp memory) {\n        (Error err0, uint scaledNumerator) = mul(num, expScale);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n\n        (Error err1, uint rational) = div(scaledNumerator, denom);\n        if (err1 != Error.NO_ERROR) {\n            return (err1, Exp({mantissa: 0}));\n        }\n\n        return (Error.NO_ERROR, Exp({mantissa: rational}));\n    }\n\n    /**\n    * @dev Adds two exponentials, returning a new exponential.\n    */\n    function addExp(Exp memory a, Exp memory b) pure internal returns (Error, Exp memory) {\n        (Error error, uint result) = add(a.mantissa, b.mantissa);\n\n        return (error, Exp({mantissa: result}));\n    }\n\n    /**\n    * @dev Subtracts two exponentials, returning a new exponential.\n    */\n    function subExp(Exp memory a, Exp memory b) pure internal returns (Error, Exp memory) {\n        (Error error, uint result) = sub(a.mantissa, b.mantissa);\n\n        return (error, Exp({mantissa: result}));\n    }\n\n    /**\n    * @dev Multiply an Exp by a scalar, returning a new Exp.\n    */\n    function mulScalar(Exp memory a, uint scalar) pure internal returns (Error, Exp memory) {\n        (Error err0, uint scaledMantissa) = mul(a.mantissa, scalar);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n\n        return (Error.NO_ERROR, Exp({mantissa: scaledMantissa}));\n    }\n\n    /**\n    * @dev Divide an Exp by a scalar, returning a new Exp.\n    */\n    function divScalar(Exp memory a, uint scalar) pure internal returns (Error, Exp memory) {\n        (Error err0, uint descaledMantissa) = div(a.mantissa, scalar);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n\n        return (Error.NO_ERROR, Exp({mantissa: descaledMantissa}));\n    }\n\n    /**\n    * @dev Divide a scalar by an Exp, returning a new Exp.\n    */\n    function divScalarByExp(uint scalar, Exp divisor) pure internal returns (Error, Exp memory) {\n        /*\n            We are doing this as:\n            getExp(mul(expScale, scalar), divisor.mantissa)\n\n            How it works:\n            Exp = a / b;\n            Scalar = s;\n            `s / (a / b)` = `b * s / a` and since for an Exp `a = mantissa, b = expScale`\n        */\n        (Error err0, uint numerator) = mul(expScale, scalar);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n        return getExp(numerator, divisor.mantissa);\n    }\n\n    /**\n    * @dev Multiplies two exponentials, returning a new exponential.\n    */\n    function mulExp(Exp memory a, Exp memory b) pure internal returns (Error, Exp memory) {\n\n        (Error err0, uint doubleScaledProduct) = mul(a.mantissa, b.mantissa);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n\n        // We add half the scale before dividing so that we get rounding instead of truncation.\n        //  See \"Listing 6\" and text above it at https://accu.org/index.php/journals/1717\n        // Without this change, a result like 6.6...e-19 will be truncated to 0 instead of being rounded to 1e-18.\n        (Error err1, uint doubleScaledProductWithHalfScale) = add(halfExpScale, doubleScaledProduct);\n        if (err1 != Error.NO_ERROR) {\n            return (err1, Exp({mantissa: 0}));\n        }\n\n        (Error err2, uint product) = div(doubleScaledProductWithHalfScale, expScale);\n        // The only error `div` can return is Error.DIVISION_BY_ZERO but we control `expScale` and it is not zero.\n        assert(err2 == Error.NO_ERROR);\n\n        return (Error.NO_ERROR, Exp({mantissa: product}));\n    }\n\n    /**\n      * @dev Divides two exponentials, returning a new exponential.\n      *     (a/scale) / (b/scale) = (a/scale) * (scale/b) = a/b,\n      *  which we can scale as an Exp by calling getExp(a.mantissa, b.mantissa)\n      */\n    function divExp(Exp memory a, Exp memory b) pure internal returns (Error, Exp memory) {\n        return getExp(a.mantissa, b.mantissa);\n    }\n\n    /**\n      * @dev Truncates the given exp to a whole number value.\n      *      For example, truncate(Exp{mantissa: 15 * (10**18)}) = 15\n      */\n    function truncate(Exp memory exp) pure internal returns (uint) {\n        // Note: We are not using careful math here as we're performing a division that cannot fail\n        return exp.mantissa / 10**18;\n    }\n\n    /**\n      * @dev Checks if first Exp is less than second Exp.\n      */\n    function lessThanExp(Exp memory left, Exp memory right) pure internal returns (bool) {\n        return left.mantissa < right.mantissa; //TODO: Add some simple tests and this in another PR yo.\n    }\n\n    /**\n      * @dev Checks if left Exp <= right Exp.\n      */\n    function lessThanOrEqualExp(Exp memory left, Exp memory right) pure internal returns (bool) {\n        return left.mantissa <= right.mantissa;\n    }\n\n    /**\n      * @dev returns true if Exp is exactly zero\n      */\n    function isZeroExp(Exp memory value) pure internal returns (bool) {\n        return value.mantissa == 0;\n    }\n}\n",
+  "bytecode": "0x6080604052348015600f57600080fd5b50603580601d6000396000f3006080604052600080fd00a165627a7a723058206e14cf3bde77c1001985daa59ad10df17564c19d684a2ac4387236ad4e32aa100029",
+  "deployedBytecode": "0x6080604052600080fd00a165627a7a723058206e14cf3bde77c1001985daa59ad10df17564c19d684a2ac4387236ad4e32aa100029",
+  "sourceMap": "415:6103:4:-;;;;8:9:-1;5:2;;;30:1;27;20:12;5:2;415:6103:4;;;;;;;",
+  "deployedSourceMap": "415:6103:4:-;;;;;",
+  "source": "pragma solidity ^0.4.24;\n\nimport \"./ErrorReporter.sol\";\nimport \"./CarefulMath.sol\";\n\n/**\n  * @title Exponential module for storing fixed-decision decimals\n  * @author Compound\n  * @notice Exp is a struct which stores decimals with a fixed precision of 18 decimal places.\n  *         Thus, if we wanted to store the 5.1, mantissa would store 5.1e18. That is:\n  *         `Exp({mantissa: 5100000000000000000})`.\n  */\ncontract Exponential is ErrorReporter, CarefulMath {\n\n    // TODO: We may wish to put the result of 10**18 here instead of the expression.\n    // Per https://solidity.readthedocs.io/en/latest/contracts.html#constant-state-variables\n    // the optimizer MAY replace the expression 10**18 with its calculated value.\n    uint constant expScale = 10**18;\n\n    // See TODO on expScale\n    uint constant halfExpScale = expScale/2;\n\n    struct Exp {\n        uint mantissa;\n    }\n\n    uint constant mantissaOne = 10**18;\n    uint constant mantissaOneTenth = 10**17;\n\n    /**\n    * @dev Creates an exponential from numerator and denominator values.\n    *      Note: Returns an error if (`num` * 10e18) > MAX_INT,\n    *            or if `denom` is zero.\n    */\n    function getExp(uint num, uint denom) pure internal returns (Error, Exp memory) {\n        (Error err0, uint scaledNumerator) = mul(num, expScale);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n\n        (Error err1, uint rational) = div(scaledNumerator, denom);\n        if (err1 != Error.NO_ERROR) {\n            return (err1, Exp({mantissa: 0}));\n        }\n\n        return (Error.NO_ERROR, Exp({mantissa: rational}));\n    }\n\n    /**\n    * @dev Adds two exponentials, returning a new exponential.\n    */\n    function addExp(Exp memory a, Exp memory b) pure internal returns (Error, Exp memory) {\n        (Error error, uint result) = add(a.mantissa, b.mantissa);\n\n        return (error, Exp({mantissa: result}));\n    }\n\n    /**\n    * @dev Subtracts two exponentials, returning a new exponential.\n    */\n    function subExp(Exp memory a, Exp memory b) pure internal returns (Error, Exp memory) {\n        (Error error, uint result) = sub(a.mantissa, b.mantissa);\n\n        return (error, Exp({mantissa: result}));\n    }\n\n    /**\n    * @dev Multiply an Exp by a scalar, returning a new Exp.\n    */\n    function mulScalar(Exp memory a, uint scalar) pure internal returns (Error, Exp memory) {\n        (Error err0, uint scaledMantissa) = mul(a.mantissa, scalar);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n\n        return (Error.NO_ERROR, Exp({mantissa: scaledMantissa}));\n    }\n\n    /**\n    * @dev Divide an Exp by a scalar, returning a new Exp.\n    */\n    function divScalar(Exp memory a, uint scalar) pure internal returns (Error, Exp memory) {\n        (Error err0, uint descaledMantissa) = div(a.mantissa, scalar);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n\n        return (Error.NO_ERROR, Exp({mantissa: descaledMantissa}));\n    }\n\n    /**\n    * @dev Divide a scalar by an Exp, returning a new Exp.\n    */\n    function divScalarByExp(uint scalar, Exp divisor) pure internal returns (Error, Exp memory) {\n        /*\n            We are doing this as:\n            getExp(mul(expScale, scalar), divisor.mantissa)\n\n            How it works:\n            Exp = a / b;\n            Scalar = s;\n            `s / (a / b)` = `b * s / a` and since for an Exp `a = mantissa, b = expScale`\n        */\n        (Error err0, uint numerator) = mul(expScale, scalar);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n        return getExp(numerator, divisor.mantissa);\n    }\n\n    /**\n    * @dev Multiplies two exponentials, returning a new exponential.\n    */\n    function mulExp(Exp memory a, Exp memory b) pure internal returns (Error, Exp memory) {\n\n        (Error err0, uint doubleScaledProduct) = mul(a.mantissa, b.mantissa);\n        if (err0 != Error.NO_ERROR) {\n            return (err0, Exp({mantissa: 0}));\n        }\n\n        // We add half the scale before dividing so that we get rounding instead of truncation.\n        //  See \"Listing 6\" and text above it at https://accu.org/index.php/journals/1717\n        // Without this change, a result like 6.6...e-19 will be truncated to 0 instead of being rounded to 1e-18.\n        (Error err1, uint doubleScaledProductWithHalfScale) = add(halfExpScale, doubleScaledProduct);\n        if (err1 != Error.NO_ERROR) {\n            return (err1, Exp({mantissa: 0}));\n        }\n\n        (Error err2, uint product) = div(doubleScaledProductWithHalfScale, expScale);\n        // The only error `div` can return is Error.DIVISION_BY_ZERO but we control `expScale` and it is not zero.\n        assert(err2 == Error.NO_ERROR);\n\n        return (Error.NO_ERROR, Exp({mantissa: product}));\n    }\n\n    /**\n      * @dev Divides two exponentials, returning a new exponential.\n      *     (a/scale) / (b/scale) = (a/scale) * (scale/b) = a/b,\n      *  which we can scale as an Exp by calling getExp(a.mantissa, b.mantissa)\n      */\n    function divExp(Exp memory a, Exp memory b) pure internal returns (Error, Exp memory) {\n        return getExp(a.mantissa, b.mantissa);\n    }\n\n    /**\n      * @dev Truncates the given exp to a whole number value.\n      *      For example, truncate(Exp{mantissa: 15 * (10**18)}) = 15\n      */\n    function truncate(Exp memory exp) pure internal returns (uint) {\n        // Note: We are not using careful math here as we're performing a division that cannot fail\n        return exp.mantissa / 10**18;\n    }\n\n    /**\n      * @dev Checks if first Exp is less than second Exp.\n      */\n    function lessThanExp(Exp memory left, Exp memory right) pure internal returns (bool) {\n        return left.mantissa < right.mantissa; //TODO: Add some simple tests and this in another PR yo.\n    }\n\n    /**\n      * @dev Checks if left Exp <= right Exp.\n      */\n    function lessThanOrEqualExp(Exp memory left, Exp memory right) pure internal returns (bool) {\n        return left.mantissa <= right.mantissa;\n    }\n\n    /**\n     * @dev Checks if first Exp is greater than second Exp.\n     */\n    function greaterThanExp(Exp memory left, Exp memory right) pure internal returns (bool) {\n        return left.mantissa > right.mantissa;\n    }\n\n\n    /**\n      * @dev returns true if Exp is exactly zero\n      */\n    function isZeroExp(Exp memory value) pure internal returns (bool) {\n        return value.mantissa == 0;\n    }\n}\n",
   "sourcePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/Exponential.sol",
   "ast": {
     "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/Exponential.sol",
     "exportedSymbols": {
       "Exponential": [
-        921
+        937
       ]
     },
-    "id": 922,
+    "id": 938,
     "nodeType": "SourceUnit",
     "nodes": [
       {
@@ -56,7 +56,7 @@
         "file": "./ErrorReporter.sol",
         "id": 494,
         "nodeType": "ImportDirective",
-        "scope": 922,
+        "scope": 938,
         "sourceUnit": 492,
         "src": "26:29:4",
         "symbolAliases": [],
@@ -67,7 +67,7 @@
         "file": "./CarefulMath.sol",
         "id": 495,
         "nodeType": "ImportDirective",
-        "scope": 922,
+        "scope": 938,
         "sourceUnit": 183,
         "src": "56:27:4",
         "symbolAliases": [],
@@ -119,9 +119,9 @@
         "contractKind": "contract",
         "documentation": "@title Exponential module for storing fixed-decision decimals\n@author Compound\n@notice Exp is a struct which stores decimals with a fixed precision of 18 decimal places.\n        Thus, if we wanted to store the 5.1, mantissa would store 5.1e18. That is:\n        `Exp({mantissa: 5100000000000000000})`.",
         "fullyImplemented": true,
-        "id": 921,
+        "id": 937,
         "linearizedBaseContracts": [
-          921,
+          937,
           182,
           491
         ],
@@ -133,7 +133,7 @@
             "id": 504,
             "name": "expScale",
             "nodeType": "VariableDeclaration",
-            "scope": 921,
+            "scope": 937,
             "src": "733:31:4",
             "stateVariable": true,
             "storageLocation": "default",
@@ -213,7 +213,7 @@
             "id": 509,
             "name": "halfExpScale",
             "nodeType": "VariableDeclaration",
-            "scope": 921,
+            "scope": 937,
             "src": "799:39:4",
             "stateVariable": true,
             "storageLocation": "default",
@@ -316,7 +316,7 @@
             ],
             "name": "Exp",
             "nodeType": "StructDefinition",
-            "scope": 921,
+            "scope": 937,
             "src": "845:41:4",
             "visibility": "public"
           },
@@ -325,7 +325,7 @@
             "id": 517,
             "name": "mantissaOne",
             "nodeType": "VariableDeclaration",
-            "scope": 921,
+            "scope": 937,
             "src": "892:34:4",
             "stateVariable": true,
             "storageLocation": "default",
@@ -405,7 +405,7 @@
             "id": 522,
             "name": "mantissaOneTenth",
             "nodeType": "VariableDeclaration",
-            "scope": 921,
+            "scope": 937,
             "src": "932:39:4",
             "stateVariable": true,
             "storageLocation": "default",
@@ -1301,7 +1301,7 @@
               ],
               "src": "1230:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "1170:471:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -1695,7 +1695,7 @@
               ],
               "src": "1791:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "1725:209:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -2089,7 +2089,7 @@
               ],
               "src": "2089:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "2023:209:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -2642,7 +2642,7 @@
               ],
               "src": "2382:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "2314:326:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -3195,7 +3195,7 @@
               ],
               "src": "2788:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "2720:330:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -3722,7 +3722,7 @@
               ],
               "src": "3202:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "3130:590:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -4558,7 +4558,7 @@
                       "name": "assert",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 7306,
+                      "referencedDeclaration": 8412,
                       "src": "4781:6:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_assert_pure$_t_bool_$returns$__$",
@@ -4818,7 +4818,7 @@
               ],
               "src": "3876:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "3810:1068:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -5071,7 +5071,7 @@
               ],
               "src": "5180:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "5114:140:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -5271,7 +5271,7 @@
               ],
               "src": "5465:6:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "5409:208:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -5473,7 +5473,7 @@
               ],
               "src": "5776:6:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "5698:196:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -5675,7 +5675,7 @@
               ],
               "src": "6048:6:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "5963:147:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -5683,9 +5683,9 @@
           },
           {
             "body": {
-              "id": 919,
+              "id": 922,
               "nodeType": "Block",
-              "src": "6248:43:4",
+              "src": "6280:54:4",
               "statements": [
                 {
                   "expression": {
@@ -5694,7 +5694,7 @@
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     },
-                    "id": 917,
+                    "id": 920,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -5703,18 +5703,18 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 914,
-                        "name": "value",
+                        "id": 916,
+                        "name": "left",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
                         "referencedDeclaration": 909,
-                        "src": "6265:5:4",
+                        "src": "6297:4:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
                           "typeString": "struct Exponential.Exp memory"
                         }
                       },
-                      "id": 915,
+                      "id": 917,
                       "isConstant": false,
                       "isLValue": true,
                       "isPure": false,
@@ -5722,64 +5722,75 @@
                       "memberName": "mantissa",
                       "nodeType": "MemberAccess",
                       "referencedDeclaration": 511,
-                      "src": "6265:14:4",
+                      "src": "6297:13:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
                       }
                     },
                     "nodeType": "BinaryOperation",
-                    "operator": "==",
+                    "operator": ">",
                     "rightExpression": {
                       "argumentTypes": null,
-                      "hexValue": "30",
-                      "id": 916,
-                      "isConstant": false,
-                      "isLValue": false,
-                      "isPure": true,
-                      "kind": "number",
-                      "lValueRequested": false,
-                      "nodeType": "Literal",
-                      "src": "6283:1:4",
-                      "subdenomination": null,
-                      "typeDescriptions": {
-                        "typeIdentifier": "t_rational_0_by_1",
-                        "typeString": "int_const 0"
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 918,
+                        "name": "right",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 911,
+                        "src": "6313:5:4",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
+                          "typeString": "struct Exponential.Exp memory"
+                        }
                       },
-                      "value": "0"
+                      "id": 919,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "mantissa",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 511,
+                      "src": "6313:14:4",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
                     },
-                    "src": "6265:19:4",
+                    "src": "6297:30:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
                     }
                   },
-                  "functionReturnParameters": 913,
-                  "id": 918,
+                  "functionReturnParameters": 915,
+                  "id": 921,
                   "nodeType": "Return",
-                  "src": "6258:26:4"
+                  "src": "6290:37:4"
                 }
               ]
             },
-            "documentation": "@dev returns true if Exp is exactly zero",
-            "id": 920,
+            "documentation": "@dev Checks if first Exp is greater than second Exp.",
+            "id": 923,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": true,
             "modifiers": [],
-            "name": "isZeroExp",
+            "name": "greaterThanExp",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 910,
+              "id": 912,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
                   "id": 909,
-                  "name": "value",
+                  "name": "left",
                   "nodeType": "VariableDeclaration",
-                  "scope": 920,
-                  "src": "6201:16:4",
+                  "scope": 923,
+                  "src": "6216:15:4",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -5792,7 +5803,35 @@
                     "name": "Exp",
                     "nodeType": "UserDefinedTypeName",
                     "referencedDeclaration": 512,
-                    "src": "6201:3:4",
+                    "src": "6216:3:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_Exp_$512_storage_ptr",
+                      "typeString": "struct Exponential.Exp"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 911,
+                  "name": "right",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 923,
+                  "src": "6233:16:4",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
+                    "typeString": "struct Exponential.Exp"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 910,
+                    "name": "Exp",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 512,
+                    "src": "6233:3:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_struct$_Exp_$512_storage_ptr",
                       "typeString": "struct Exponential.Exp"
@@ -5802,20 +5841,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "6200:18:4"
+              "src": "6215:35:4"
             },
             "payable": false,
             "returnParameters": {
-              "id": 913,
+              "id": 915,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 912,
+                  "id": 914,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 920,
-                  "src": "6242:4:4",
+                  "scope": 923,
+                  "src": "6274:4:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -5823,10 +5862,10 @@
                     "typeString": "bool"
                   },
                   "typeName": {
-                    "id": 911,
+                    "id": 913,
                     "name": "bool",
                     "nodeType": "ElementaryTypeName",
-                    "src": "6242:4:4",
+                    "src": "6274:4:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
@@ -5836,29 +5875,192 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "6241:6:4"
+              "src": "6273:6:4"
             },
-            "scope": 921,
-            "src": "6182:109:4",
+            "scope": 937,
+            "src": "6192:142:4",
+            "stateMutability": "pure",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 935,
+              "nodeType": "Block",
+              "src": "6473:43:4",
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 933,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 930,
+                        "name": "value",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 925,
+                        "src": "6490:5:4",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
+                          "typeString": "struct Exponential.Exp memory"
+                        }
+                      },
+                      "id": 931,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "mantissa",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 511,
+                      "src": "6490:14:4",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "==",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "hexValue": "30",
+                      "id": 932,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "kind": "number",
+                      "lValueRequested": false,
+                      "nodeType": "Literal",
+                      "src": "6508:1:4",
+                      "subdenomination": null,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_rational_0_by_1",
+                        "typeString": "int_const 0"
+                      },
+                      "value": "0"
+                    },
+                    "src": "6490:19:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "functionReturnParameters": 929,
+                  "id": 934,
+                  "nodeType": "Return",
+                  "src": "6483:26:4"
+                }
+              ]
+            },
+            "documentation": "@dev returns true if Exp is exactly zero",
+            "id": 936,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": true,
+            "modifiers": [],
+            "name": "isZeroExp",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 926,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 925,
+                  "name": "value",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 936,
+                  "src": "6426:16:4",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
+                    "typeString": "struct Exponential.Exp"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 924,
+                    "name": "Exp",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 512,
+                    "src": "6426:3:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_Exp_$512_storage_ptr",
+                      "typeString": "struct Exponential.Exp"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "6425:18:4"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 929,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 928,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 936,
+                  "src": "6467:4:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 927,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "6467:4:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "6466:6:4"
+            },
+            "scope": 937,
+            "src": "6407:109:4",
             "stateMutability": "pure",
             "superFunction": null,
             "visibility": "internal"
           }
         ],
-        "scope": 922,
-        "src": "415:5878:4"
+        "scope": 938,
+        "src": "415:6103:4"
       }
     ],
-    "src": "0:6294:4"
+    "src": "0:6519:4"
   },
   "legacyAST": {
     "absolutePath": "/home/pillardev/Desktop/freelance/compound-money-market/contracts/Exponential.sol",
     "exportedSymbols": {
       "Exponential": [
-        921
+        937
       ]
     },
-    "id": 922,
+    "id": 938,
     "nodeType": "SourceUnit",
     "nodes": [
       {
@@ -5877,7 +6079,7 @@
         "file": "./ErrorReporter.sol",
         "id": 494,
         "nodeType": "ImportDirective",
-        "scope": 922,
+        "scope": 938,
         "sourceUnit": 492,
         "src": "26:29:4",
         "symbolAliases": [],
@@ -5888,7 +6090,7 @@
         "file": "./CarefulMath.sol",
         "id": 495,
         "nodeType": "ImportDirective",
-        "scope": 922,
+        "scope": 938,
         "sourceUnit": 183,
         "src": "56:27:4",
         "symbolAliases": [],
@@ -5940,9 +6142,9 @@
         "contractKind": "contract",
         "documentation": "@title Exponential module for storing fixed-decision decimals\n@author Compound\n@notice Exp is a struct which stores decimals with a fixed precision of 18 decimal places.\n        Thus, if we wanted to store the 5.1, mantissa would store 5.1e18. That is:\n        `Exp({mantissa: 5100000000000000000})`.",
         "fullyImplemented": true,
-        "id": 921,
+        "id": 937,
         "linearizedBaseContracts": [
-          921,
+          937,
           182,
           491
         ],
@@ -5954,7 +6156,7 @@
             "id": 504,
             "name": "expScale",
             "nodeType": "VariableDeclaration",
-            "scope": 921,
+            "scope": 937,
             "src": "733:31:4",
             "stateVariable": true,
             "storageLocation": "default",
@@ -6034,7 +6236,7 @@
             "id": 509,
             "name": "halfExpScale",
             "nodeType": "VariableDeclaration",
-            "scope": 921,
+            "scope": 937,
             "src": "799:39:4",
             "stateVariable": true,
             "storageLocation": "default",
@@ -6137,7 +6339,7 @@
             ],
             "name": "Exp",
             "nodeType": "StructDefinition",
-            "scope": 921,
+            "scope": 937,
             "src": "845:41:4",
             "visibility": "public"
           },
@@ -6146,7 +6348,7 @@
             "id": 517,
             "name": "mantissaOne",
             "nodeType": "VariableDeclaration",
-            "scope": 921,
+            "scope": 937,
             "src": "892:34:4",
             "stateVariable": true,
             "storageLocation": "default",
@@ -6226,7 +6428,7 @@
             "id": 522,
             "name": "mantissaOneTenth",
             "nodeType": "VariableDeclaration",
-            "scope": 921,
+            "scope": 937,
             "src": "932:39:4",
             "stateVariable": true,
             "storageLocation": "default",
@@ -7122,7 +7324,7 @@
               ],
               "src": "1230:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "1170:471:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -7516,7 +7718,7 @@
               ],
               "src": "1791:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "1725:209:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -7910,7 +8112,7 @@
               ],
               "src": "2089:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "2023:209:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -8463,7 +8665,7 @@
               ],
               "src": "2382:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "2314:326:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -9016,7 +9218,7 @@
               ],
               "src": "2788:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "2720:330:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -9543,7 +9745,7 @@
               ],
               "src": "3202:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "3130:590:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -10379,7 +10581,7 @@
                       "name": "assert",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
-                      "referencedDeclaration": 7306,
+                      "referencedDeclaration": 8412,
                       "src": "4781:6:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_function_assert_pure$_t_bool_$returns$__$",
@@ -10639,7 +10841,7 @@
               ],
               "src": "3876:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "3810:1068:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -10892,7 +11094,7 @@
               ],
               "src": "5180:19:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "5114:140:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -11092,7 +11294,7 @@
               ],
               "src": "5465:6:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "5409:208:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -11294,7 +11496,7 @@
               ],
               "src": "5776:6:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "5698:196:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -11496,7 +11698,7 @@
               ],
               "src": "6048:6:4"
             },
-            "scope": 921,
+            "scope": 937,
             "src": "5963:147:4",
             "stateMutability": "pure",
             "superFunction": null,
@@ -11504,9 +11706,9 @@
           },
           {
             "body": {
-              "id": 919,
+              "id": 922,
               "nodeType": "Block",
-              "src": "6248:43:4",
+              "src": "6280:54:4",
               "statements": [
                 {
                   "expression": {
@@ -11515,7 +11717,7 @@
                       "typeIdentifier": "t_uint256",
                       "typeString": "uint256"
                     },
-                    "id": 917,
+                    "id": 920,
                     "isConstant": false,
                     "isLValue": false,
                     "isPure": false,
@@ -11524,18 +11726,18 @@
                       "argumentTypes": null,
                       "expression": {
                         "argumentTypes": null,
-                        "id": 914,
-                        "name": "value",
+                        "id": 916,
+                        "name": "left",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
                         "referencedDeclaration": 909,
-                        "src": "6265:5:4",
+                        "src": "6297:4:4",
                         "typeDescriptions": {
                           "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
                           "typeString": "struct Exponential.Exp memory"
                         }
                       },
-                      "id": 915,
+                      "id": 917,
                       "isConstant": false,
                       "isLValue": true,
                       "isPure": false,
@@ -11543,64 +11745,75 @@
                       "memberName": "mantissa",
                       "nodeType": "MemberAccess",
                       "referencedDeclaration": 511,
-                      "src": "6265:14:4",
+                      "src": "6297:13:4",
                       "typeDescriptions": {
                         "typeIdentifier": "t_uint256",
                         "typeString": "uint256"
                       }
                     },
                     "nodeType": "BinaryOperation",
-                    "operator": "==",
+                    "operator": ">",
                     "rightExpression": {
                       "argumentTypes": null,
-                      "hexValue": "30",
-                      "id": 916,
-                      "isConstant": false,
-                      "isLValue": false,
-                      "isPure": true,
-                      "kind": "number",
-                      "lValueRequested": false,
-                      "nodeType": "Literal",
-                      "src": "6283:1:4",
-                      "subdenomination": null,
-                      "typeDescriptions": {
-                        "typeIdentifier": "t_rational_0_by_1",
-                        "typeString": "int_const 0"
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 918,
+                        "name": "right",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 911,
+                        "src": "6313:5:4",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
+                          "typeString": "struct Exponential.Exp memory"
+                        }
                       },
-                      "value": "0"
+                      "id": 919,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "mantissa",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 511,
+                      "src": "6313:14:4",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
                     },
-                    "src": "6265:19:4",
+                    "src": "6297:30:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
                     }
                   },
-                  "functionReturnParameters": 913,
-                  "id": 918,
+                  "functionReturnParameters": 915,
+                  "id": 921,
                   "nodeType": "Return",
-                  "src": "6258:26:4"
+                  "src": "6290:37:4"
                 }
               ]
             },
-            "documentation": "@dev returns true if Exp is exactly zero",
-            "id": 920,
+            "documentation": "@dev Checks if first Exp is greater than second Exp.",
+            "id": 923,
             "implemented": true,
             "isConstructor": false,
             "isDeclaredConst": true,
             "modifiers": [],
-            "name": "isZeroExp",
+            "name": "greaterThanExp",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 910,
+              "id": 912,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
                   "id": 909,
-                  "name": "value",
+                  "name": "left",
                   "nodeType": "VariableDeclaration",
-                  "scope": 920,
-                  "src": "6201:16:4",
+                  "scope": 923,
+                  "src": "6216:15:4",
                   "stateVariable": false,
                   "storageLocation": "memory",
                   "typeDescriptions": {
@@ -11613,7 +11826,35 @@
                     "name": "Exp",
                     "nodeType": "UserDefinedTypeName",
                     "referencedDeclaration": 512,
-                    "src": "6201:3:4",
+                    "src": "6216:3:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_Exp_$512_storage_ptr",
+                      "typeString": "struct Exponential.Exp"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                },
+                {
+                  "constant": false,
+                  "id": 911,
+                  "name": "right",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 923,
+                  "src": "6233:16:4",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
+                    "typeString": "struct Exponential.Exp"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 910,
+                    "name": "Exp",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 512,
+                    "src": "6233:3:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_struct$_Exp_$512_storage_ptr",
                       "typeString": "struct Exponential.Exp"
@@ -11623,20 +11864,20 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "6200:18:4"
+              "src": "6215:35:4"
             },
             "payable": false,
             "returnParameters": {
-              "id": 913,
+              "id": 915,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 912,
+                  "id": 914,
                   "name": "",
                   "nodeType": "VariableDeclaration",
-                  "scope": 920,
-                  "src": "6242:4:4",
+                  "scope": 923,
+                  "src": "6274:4:4",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -11644,10 +11885,10 @@
                     "typeString": "bool"
                   },
                   "typeName": {
-                    "id": 911,
+                    "id": 913,
                     "name": "bool",
                     "nodeType": "ElementaryTypeName",
-                    "src": "6242:4:4",
+                    "src": "6274:4:4",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bool",
                       "typeString": "bool"
@@ -11657,20 +11898,183 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "6241:6:4"
+              "src": "6273:6:4"
             },
-            "scope": 921,
-            "src": "6182:109:4",
+            "scope": 937,
+            "src": "6192:142:4",
+            "stateMutability": "pure",
+            "superFunction": null,
+            "visibility": "internal"
+          },
+          {
+            "body": {
+              "id": 935,
+              "nodeType": "Block",
+              "src": "6473:43:4",
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "commonType": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "id": 933,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
+                    "leftExpression": {
+                      "argumentTypes": null,
+                      "expression": {
+                        "argumentTypes": null,
+                        "id": 930,
+                        "name": "value",
+                        "nodeType": "Identifier",
+                        "overloadedDeclarations": [],
+                        "referencedDeclaration": 925,
+                        "src": "6490:5:4",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
+                          "typeString": "struct Exponential.Exp memory"
+                        }
+                      },
+                      "id": 931,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
+                      "memberName": "mantissa",
+                      "nodeType": "MemberAccess",
+                      "referencedDeclaration": 511,
+                      "src": "6490:14:4",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "nodeType": "BinaryOperation",
+                    "operator": "==",
+                    "rightExpression": {
+                      "argumentTypes": null,
+                      "hexValue": "30",
+                      "id": 932,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "kind": "number",
+                      "lValueRequested": false,
+                      "nodeType": "Literal",
+                      "src": "6508:1:4",
+                      "subdenomination": null,
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_rational_0_by_1",
+                        "typeString": "int_const 0"
+                      },
+                      "value": "0"
+                    },
+                    "src": "6490:19:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "functionReturnParameters": 929,
+                  "id": 934,
+                  "nodeType": "Return",
+                  "src": "6483:26:4"
+                }
+              ]
+            },
+            "documentation": "@dev returns true if Exp is exactly zero",
+            "id": 936,
+            "implemented": true,
+            "isConstructor": false,
+            "isDeclaredConst": true,
+            "modifiers": [],
+            "name": "isZeroExp",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 926,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 925,
+                  "name": "value",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 936,
+                  "src": "6426:16:4",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_Exp_$512_memory_ptr",
+                    "typeString": "struct Exponential.Exp"
+                  },
+                  "typeName": {
+                    "contractScope": null,
+                    "id": 924,
+                    "name": "Exp",
+                    "nodeType": "UserDefinedTypeName",
+                    "referencedDeclaration": 512,
+                    "src": "6426:3:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_Exp_$512_storage_ptr",
+                      "typeString": "struct Exponential.Exp"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "6425:18:4"
+            },
+            "payable": false,
+            "returnParameters": {
+              "id": 929,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 928,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 936,
+                  "src": "6467:4:4",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 927,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "6467:4:4",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "6466:6:4"
+            },
+            "scope": 937,
+            "src": "6407:109:4",
             "stateMutability": "pure",
             "superFunction": null,
             "visibility": "internal"
           }
         ],
-        "scope": 922,
-        "src": "415:5878:4"
+        "scope": 938,
+        "src": "415:6103:4"
       }
     ],
-    "src": "0:6294:4"
+    "src": "0:6519:4"
   },
   "compiler": {
     "name": "solc",
@@ -11678,5 +12082,5 @@
   },
   "networks": {},
   "schemaVersion": "2.0.2",
-  "updatedAt": "2020-02-06T13:12:14.499Z"
+  "updatedAt": "2020-02-08T11:01:27.455Z"
 }

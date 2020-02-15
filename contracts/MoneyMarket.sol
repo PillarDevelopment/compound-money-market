@@ -23,7 +23,7 @@ contract MoneyMarket is Exponential, SafeToken {
       * @notice `MoneyMarket` is the core Compound MoneyMarket contract
       */
     constructor() public {
-        admin = msg.sender;
+        owner = msg.sender;
         collateralRatio = Exp({mantissa: 2 * mantissaOne});
         originationFee = Exp({mantissa: defaultOriginationFee});
         liquidationDiscount = Exp({mantissa: 0});
@@ -38,19 +38,19 @@ contract MoneyMarket is Exponential, SafeToken {
     }
 
     /**
-      * @dev pending Administrator for this contract.
+      * @dev pending Owner for this contract.
       */
-    address public pendingAdmin;
+    address public pendingOwner;
 
     /**
-      * @dev Administrator for this contract. Initially set in constructor, but can
-      *      be changed by the admin itself.
+      * @dev Owner for this contract. Initially set in constructor, but can
+      *      be changed by the owner itself.
       */
-    address public admin;
+    address public owner;
 
     /**
       * @dev Account allowed to set oracle prices for this contract. Initially set
-      *      in constructor, but can be changed by the admin.
+      *      in constructor, but can be changed by the owner.
       */
     address public oracle;
 
@@ -119,7 +119,7 @@ contract MoneyMarket is Exponential, SafeToken {
 
     /**
       * @dev The collateral ratio that borrows must maintain (e.g. 2 implies 2:1). This
-      *      is initially set in the constructor, but can be changed by the admin.
+      *      is initially set in the constructor, but can be changed by the owner.
       */
     Exp public collateralRatio;
 
@@ -195,14 +195,14 @@ contract MoneyMarket is Exponential, SafeToken {
         uint collateralBalanceAfter);
 
     /**
-      * @dev emitted when pendingAdmin is changed
+      * @dev emitted when pendingOwner is changed
       */
-    event NewPendingAdmin(address oldPendingAdmin, address newPendingAdmin);
+    event NewPendingOwner(address oldPendingOwner, address NewPendingOwner);
 
     /**
-      * @dev emitted when pendingAdmin is accepted, which means admin is updated
+      * @dev emitted when pendingOwner is accepted, which means owner is updated
       */
-    event NewAdmin(address oldAdmin, address newAdmin);
+    event NewOwner(address oldOwner, address newOwner);
 
     /**
       * @dev newOracle - address of new oracle
@@ -210,17 +210,17 @@ contract MoneyMarket is Exponential, SafeToken {
     event NewOracle(address oldOracle, address newOracle);
 
     /**
-      * @dev emitted when new market is supported by admin
+      * @dev emitted when new market is supported by owner
       */
     event SupportedMarket(address asset, address interestRateModel);
 
     /**
-      * @dev emitted when risk parameters are changed by admin
+      * @dev emitted when risk parameters are changed by owner
       */
     event NewRiskParameters(uint oldCollateralRatioMantissa, uint newCollateralRatioMantissa, uint oldLiquidationDiscountMantissa, uint newLiquidationDiscountMantissa);
 
     /**
-      * @dev emitted when origination fee is changed by admin
+      * @dev emitted when origination fee is changed by owner
       */
     event NewOriginationFee(uint oldOriginationFeeMantissa, uint newOriginationFeeMantissa);
 
@@ -230,18 +230,18 @@ contract MoneyMarket is Exponential, SafeToken {
     event SetMarketInterestRateModel(address asset, address interestRateModel);
 
     /**
-      * @dev emitted when admin withdraws equity
+      * @dev emitted when owner withdraws equity
       * Note that `equityAvailableBefore` indicates equity before `amount` was removed.
       */
     event EquityWithdrawn(address asset, uint equityAvailableBefore, uint amount, address owner);
 
     /**
-      * @dev emitted when a supported market is suspended by admin
+      * @dev emitted when a supported market is suspended by owner
       */
     event SuspendedMarket(address asset);
 
     /**
-      * @dev emitted when admin either pauses or resumes the contract; newState is the resulting state
+      * @dev emitted when owner either pauses or resumes the contract; newState is the resulting state
       */
     event SetPaused(bool newState);
 
@@ -467,62 +467,62 @@ contract MoneyMarket is Exponential, SafeToken {
     }
 
     /**
-      * @notice Begins transfer of admin rights. The newPendingAdmin must call `_acceptAdmin` to finalize the transfer.
-      * @dev Admin function to begin change of admin. The newPendingAdmin must call `_acceptAdmin` to finalize the transfer.
-      * @param newPendingAdmin New pending admin.
+      * @notice Begins transfer of owner rights. The newPendingOwner must call `_acceptOwner` to finalize the transfer.
+      * @dev owner function to begin change of owner. The newPendingOwner must call `_acceptOwner` to finalize the transfer.
+      * @param newPendingOwner New pending owner.
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       *
-      * TODO: Should we add a second arg to verify, like a checksum of `newAdmin` address?
+      * TODO: Should we add a second arg to verify, like a checksum of `newOwner` address?
       */
-    function _setPendingAdmin(address newPendingAdmin) public returns (uint) {
-        // Check caller = admin
-        if (msg.sender != admin) {
+    function setPendingOwner(address newPendingOwner) public returns (uint) {
+        // Check caller = owner
+        if (msg.sender != owner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_PENDING_ADMIN_OWNER_CHECK);
         }
 
         // save current value, if any, for inclusion in log
-        address oldPendingAdmin = pendingAdmin;
-        // Store pendingAdmin = newPendingAdmin
-        pendingAdmin = newPendingAdmin;
+        address oldPendingOwner = pendingOwner;
+        // Store pendingOwner = newPendingOwner
+        pendingOwner = newPendingOwner;
 
-        emit NewPendingAdmin(oldPendingAdmin, newPendingAdmin);
+        emit NewPendingOwner(oldPendingOwner, newPendingOwner);
 
         return uint(Error.NO_ERROR);
     }
 
     /**
-      * @notice Accepts transfer of admin rights. msg.sender must be pendingAdmin
-      * @dev Admin function for pending admin to accept role and update admin
+      * @notice Accepts transfer of owner rights. msg.sender must be pendingOwner
+      * @dev Owner function for pending owner to accept role and update owner
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
-    function _acceptAdmin() public returns (uint) {
-        // Check caller = pendingAdmin
+    function _acceptOwner() public returns (uint) {
+        // Check caller = pendingOwner
         // msg.sender can't be zero
-        if (msg.sender != pendingAdmin) {
+        if (msg.sender != pendingOwner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.ACCEPT_ADMIN_PENDING_ADMIN_CHECK);
         }
 
         // Save current value for inclusion in log
-        address oldAdmin = admin;
-        // Store admin = pendingAdmin
-        admin = pendingAdmin;
+        address oldOwner = owner;
+        // Store owner = pendingOwner
+        owner = pendingOwner;
         // Clear the pending value
-        pendingAdmin = 0;
+        pendingOwner = 0;
 
-        emit NewAdmin(oldAdmin, msg.sender);
+        emit NewOwner(oldOwner, msg.sender);
 
         return uint(Error.NO_ERROR);
     }
 
     /**
       * @notice Set new oracle, who can set asset prices
-      * @dev Admin function to change oracle
+      * @dev owner function to change oracle
       * @param newOracle New oracle address
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
-    function _setOracle(address newOracle) public returns (uint) {
-        // Check caller = admin
-        if (msg.sender != admin) {
+    function setOracle(address newOracle) public returns (uint) {
+        // Check caller = owner
+        if (msg.sender != owner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_ORACLE_OWNER_CHECK);
         }
 
@@ -543,13 +543,13 @@ contract MoneyMarket is Exponential, SafeToken {
 
     /**
       * @notice set `paused` to the specified state
-      * @dev Admin function to pause or resume the market
+      * @dev Owner function to pause or resume the market
       * @param requestedState value to assign to `paused`
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
-    function _setPaused(bool requestedState) public returns (uint) {
-        // Check caller = admin
-        if (msg.sender != admin) {
+    function setPaused(bool requestedState) public returns (uint) {
+        // Check caller = owner
+        if (msg.sender != owner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_PAUSED_OWNER_CHECK);
         }
 
@@ -634,14 +634,14 @@ contract MoneyMarket is Exponential, SafeToken {
 
     /**
       * @notice Supports a given market (asset) for use with Compound
-      * @dev Admin function to add support for a market
+      * @dev owner function to add support for a market
       * @param asset Asset to support; MUST already have a non-zero price set
       * @param interestRateModel InterestRateModel to use for the asset
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
-    function _supportMarket(address asset, InterestRateModel interestRateModel) public returns (uint) {
-        // Check caller = admin
-        if (msg.sender != admin) {
+    function supportMarket(address asset, InterestRateModel interestRateModel) public returns (uint) {
+        // Check caller = owner
+        if (msg.sender != owner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SUPPORT_MARKET_OWNER_CHECK);
         }
 
@@ -681,13 +681,13 @@ contract MoneyMarket is Exponential, SafeToken {
       * @notice Suspends a given *supported* market (asset) from use with Compound.
       *         Assets in this state do count for collateral, but users may only withdraw, payBorrow,
       *         and liquidate the asset. The liquidate function no longer checks collateralization.
-      * @dev Admin function to suspend a market
+      * @dev owner function to suspend a market
       * @param asset Asset to suspend
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
-    function _suspendMarket(address asset) public returns (uint) {
-        // Check caller = admin
-        if (msg.sender != admin) {
+    function suspendMarket(address asset) public returns (uint) {
+        // Check caller = owner
+        if (msg.sender != owner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SUSPEND_MARKET_OWNER_CHECK);
         }
 
@@ -714,9 +714,9 @@ contract MoneyMarket is Exponential, SafeToken {
       * @param liquidationDiscountMantissa rational liquidation discount, scaled by 1e18. The de-scaled value must be <= 0.1 and must be less than (descaled collateral ratio minus 1)
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
-    function _setRiskParameters(uint collateralRatioMantissa, uint liquidationDiscountMantissa) public returns (uint) {
-        // Check caller = admin
-        if (msg.sender != admin) {
+    function setSupplyLiquidityParameters(uint collateralRatioMantissa, uint liquidationDiscountMantissa) public returns (uint) {
+        // Check caller = owner
+        if (msg.sender != owner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_RISK_PARAMETERS_OWNER_CHECK);
         }
 
@@ -767,9 +767,9 @@ contract MoneyMarket is Exponential, SafeToken {
       * @param originationFeeMantissa rational collateral ratio, scaled by 1e18. The de-scaled value must be >= 1.1
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
-    function _setOriginationFee(uint originationFeeMantissa) public returns (uint) {
-        // Check caller = admin
-        if (msg.sender != admin) {
+    function setOriginationFee(uint originationFeeMantissa) public returns (uint) {
+        // Check caller = owner
+        if (msg.sender != owner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_ORIGINATION_FEE_OWNER_CHECK);
         }
 
@@ -785,13 +785,13 @@ contract MoneyMarket is Exponential, SafeToken {
 
     /**
       * @notice Sets the interest rate model for a given market
-      * @dev Admin function to set interest rate model
+      * @dev owner function to set interest rate model
       * @param asset Asset to support
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
-    function _setMarketInterestRateModel(address asset, InterestRateModel interestRateModel) public returns (uint) {
-        // Check caller = admin
-        if (msg.sender != admin) {
+    function setMarketInterestRateModel(address asset, InterestRateModel interestRateModel) public returns (uint) {
+        // Check caller = owner
+        if (msg.sender != owner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.SET_MARKET_INTEREST_RATE_MODEL_OWNER_CHECK);
         }
 
@@ -810,9 +810,9 @@ contract MoneyMarket is Exponential, SafeToken {
       * @param amount amount of equity to withdraw; must not exceed equity available
       * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
       */
-    function _withdrawEquity(address asset, uint amount) public returns (uint) {
-        // Check caller = admin
-        if (msg.sender != admin) {
+    function withdrawInterestSpread(address asset, uint amount, address beneficiary) public returns (uint) {
+        // Check caller = owner
+        if (msg.sender != owner) {
             return fail(Error.UNAUTHORIZED, FailureInfo.EQUITY_WITHDRAWAL_MODEL_OWNER_CHECK);
         }
 
@@ -831,15 +831,15 @@ contract MoneyMarket is Exponential, SafeToken {
         // EFFECTS & INTERACTIONS
         // (No safe failures beyond this point)
 
-        // We ERC-20 transfer the asset out of the protocol to the admin
-        Error err2 = doTransferOut(asset, admin, amount);
+        // We ERC-20 transfer the asset out of the protocol to the owner
+        Error err2 = doTransferOut(asset, beneficiary, amount);
         if (err2 != Error.NO_ERROR) {
             // This is safe since it's our first interaction and it didn't do anything if it failed
             return fail(err2, FailureInfo.EQUITY_WITHDRAWAL_TRANSFER_OUT_FAILED);
         }
 
         //event EquityWithdrawn(address asset, uint equityAvailableBefore, uint amount, address owner)
-        emit EquityWithdrawn(asset, equity, amount, admin);
+        emit EquityWithdrawn(asset, equity, amount, owner);
 
         return uint(Error.NO_ERROR); // success
     }
